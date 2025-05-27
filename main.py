@@ -51,17 +51,6 @@ def main():
     iplist_path = os.path.join("data", f"{dominio}_iplist.txt")
     naabu_path = os.path.join("data", f"{dominio}_naabu.txt")
 
-    # === Seleção de Serviços ===
-    print("\nQuais serviços você deseja executar?")
-    print("[1] ✅ Análise de Portas (rápido, ~1-5min)")
-    print("[2] 🔍 Análise de Softwares (moderado, ~1-10min)")
-    print("[3] 🕵️‍♂️ Verificação de Leaks (mais lento, ~3-15min)")
-    opcoes = input("Digite os números separados por vírgula (ex: 1,2): ").strip().split(",")
-
-    executar_portas = '1' in opcoes
-    executar_software = '2' in opcoes
-    executar_leaks = '3' in opcoes
-
     # === Etapa 1: Subfinder + DNSx ===
     run_subfinder(dominio, subs_path, resolved_path)
 
@@ -75,37 +64,17 @@ def main():
     salvar_ips(ips, iplist_path)
 
     # === Etapa 3: Naabu + análise de riscos ===
-    if executar_portas:
-        run_naabu(iplist_path, naabu_path)
-        portas_abertas = parse_naabu(naabu_path)
-        print("\n=== IPs com portas abertas detectadas ===")
-        for ip, portas in portas_abertas.items():
-            print(f"{ip}: {', '.join(map(str, portas))}")
-        alertas = avaliar_riscos(portas_abertas)
-        print("\n=== ALERTAS DE SEGURANÇA ===")
-        for ip, porta, msg in alertas:
-            print(f"{ip}:{porta} → {msg}")
-    else:
-        portas_abertas = {}
-
-    # === Etapa 4: Threads para os demais serviços ===
-    threads = []
-
-    if executar_software:
-        t_software = threading.Thread(target=detectar_softwares, args=(portas_abertas,))
-        threads.append(t_software)
-        t_software.start()
-
-    if executar_leaks:
-        def verificar_leaks():
-            print("\n[TODO] Análise de leaks ainda será implementada.")
-        t_leaks = threading.Thread(target=verificar_leaks)
-        threads.append(t_leaks)
-        t_leaks.start()
-
-    # === Aguardar fim das threads ===
-    for t in threads:
-        t.join()
+    
+    run_naabu(iplist_path, naabu_path)
+    portas_abertas = parse_naabu(naabu_path)
+    print("\n=== IPs com portas abertas detectadas ===")
+    for ip, portas in portas_abertas.items():
+        print(f"{ip}: {', '.join(map(str, portas))}")
+    alertas = avaliar_riscos(portas_abertas)
+    print("\n=== ALERTAS DE SEGURANÇA ===")
+    for ip, porta, msg in alertas:
+        print(f"{ip}:{porta} → {msg}")
+    
 
     # === Finalização ===
     limpar_pasta_data()
