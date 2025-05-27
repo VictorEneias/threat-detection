@@ -3,7 +3,6 @@ import threading
 import tldextract
 from modules.subfinder import run_subfinder
 from modules.naabu import run_naabu
-from modules.scanner_software import detectar_softwares
 from parsers.parse_dnsx import parse_dnsx
 from parsers.parse_naabu import parse_naabu
 from intelligence.risk_mapper import avaliar_riscos
@@ -35,6 +34,7 @@ def limpar_pasta_data():
 
 
 def main():
+    os.makedirs("data", exist_ok=True)
     print("=== NGSX - Análise de Exposição Corporativa ===")
     email = input("Digite seu e-mail corporativo: ").strip()
     dominio = extrair_dominio(email)
@@ -78,6 +78,56 @@ def main():
 
     # === Finalização ===
     limpar_pasta_data()
+
+def executar_analise(email):
+    os.makedirs("data", exist_ok=True)
+    dominio = extrair_dominio(email)
+
+    if not dominio:
+        return {"erro": "E-mail inválido."}
+
+    subs_path = os.path.join("data", f"{dominio}_subs.txt")
+    resolved_path = os.path.join("data", f"{dominio}_resolved.txt")
+    iplist_path = os.path.join("data", f"{dominio}_iplist.txt")
+    naabu_path = os.path.join("data", f"{dominio}_naabu.txt")
+
+    run_subfinder(dominio, subs_path, resolved_path)
+    ips = parse_dnsx(resolved_path)
+
+    if not ips:
+        return {"erro": "Nenhum IP encontrado."}
+
+    salvar_ips(ips, iplist_path)
+    run_naabu(iplist_path, naabu_path)
+    portas_abertas = parse_naabu(naabu_path)
+    alertas = avaliar_riscos(portas_abertas)
+
+    if not portas_abertas:
+        return {
+            "dominio": dominio,
+            "ips_com_portas": {},
+            "alertas": [],
+            "mensagem": "Nenhuma porta aberta detectada nos IPs encontrados."
+        }
+
+    if not alertas:
+        return {
+            "dominio": dominio,
+            "ips_com_portas": portas_abertas,
+            "alertas": [],
+            "mensagem": "Portas abertas detectadas, mas sem alertas de risco mapeados."
+        }
+
+    limpar_pasta_data()
+
+    return {
+        "dominio": dominio,
+        "ips_com_portas": portas_abertas,
+        "alertas": [
+            {"ip": ip, "porta": porta, "mensagem": msg}
+            for ip, porta, msg in alertas
+        ]
+    }
 
 
 if __name__ == "__main__":
