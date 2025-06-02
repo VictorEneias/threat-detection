@@ -1,156 +1,211 @@
-import ssl
-import socket
-import http.client
+import asyncio
+import re
+import httpx
+import time
 
+# ========================
+# CONFIGURAÇÕES DO SISTEMA
+# ========================
+PORTAS_CRITICAS = [21, 22, 23, 80, 443, 3389, 445, 3306, 5432, 1433, 25, 465, 587]
 
-def obter_banner_http(ip):
+# Armazenamento temporário de softwares detectados para visualização
+softwares_detectados = []
+
+# =============================
+# UTILITÁRIO DE MEDIÇÃO DE TEMPO
+# =============================
+def medir_tempo_execucao_async(func):
+    async def wrapper(ip, *args, **kwargs):
+        inicio = time.time()
+        resultado = await func(ip, *args, **kwargs)
+        duracao = time.time() - inicio
+        if duracao > 1:
+            print(f"[SLOW] {func.__name__}({ip}) levou {duracao:.2f}s")
+        return resultado
+    return wrapper
+
+# ========================
+# VERIFICAÇÕES DE SERVIÇO
+# ========================
+
+def parse_banner(ip, porta, banner):
+    banner = banner.strip()
+    if not banner:
+        return None
+
+    # FTP
+    if porta == 21:
+        if "pure-ftpd" in banner.lower():
+            return "Pure-FTPd"
+        if "proftpd" in banner.lower():
+            return "ProFTPD"
+        if "vsftpd" in banner.lower():
+            return "vsFTPd"
+
+    # SSH
+    if porta == 22 and banner.startswith("SSH-"):
+        return banner
+
+    # SMTP
+    if porta in [25, 465, 587]:
+        match = re.search(r"ESMTP\s+([\w\-\./]+)", banner, re.IGNORECASE)
+        if match:
+            return f"ESMTP {match.group(1)}"
+
+    # MySQL/MariaDB
+    if porta == 3306 and "mysql_native_password" in banner:
+        match = re.search(r"([Mm]\s*\d+\.\d+(\.\d+)?(?:-[^\s]+)?)", banner)
+        return match.group(1) if match else banner[:60]
+
+    # Genérico (fallback)
+    return banner[:60]
+
+@medir_tempo_execucao_async
+async def obter_server_header(ip, protocolo):
     try:
-        conn = http.client.HTTPConnection(ip, 80, timeout=5)
-        conn.request("HEAD", "/")
-        response = conn.getresponse()
-        server = response.getheader("Server")
-        conn.close()
-
-        if server:
-            return server.strip()
+        url = f"{protocolo}://{ip}"
+        async with httpx.AsyncClient(timeout=10, verify=False) as client:
+            response = await client.head(url, follow_redirects=True)
+            server = response.headers.get("Server", "").strip()
+            if server:
+                softwares_detectados.append((ip, 443 if protocolo == "https" else 80, server))
+            return server if server else None
     except Exception:
-        pass
-    return None
+        return None
 
-def obter_banner_https(ip):
+@medir_tempo_execucao_async
+async def verificar_http_sem_redirect(ip):
     try:
-        context = ssl.create_default_context()
-        conn = http.client.HTTPSConnection(ip, 443, timeout=5, context=context)
-        conn.request("HEAD", "/")
-        response = conn.getresponse()
-        server = response.getheader("Server")
-        conn.close()
-
-        if server:
-            return server.strip()
-    except Exception:
-        pass
-    return None
-
-def verificar_smtp(ip):
-    try:
-        with socket.create_connection((ip, 25), timeout=5) as sock:
-            banner = sock.recv(1024).decode(errors="ignore")
-            if "220" in banner:
-                return "⚠️ SMTP responde sem autenticação inicial"
-            return "autenticado"
-    except Exception:
-        return "falha"
-
-
-def verificar_http_sem_redirect(ip):
-    try:
-        conn = http.client.HTTPConnection(ip, 80, timeout=5)
-        conn.request("GET", "/")
-        response = conn.getresponse()
-        if response.status < 300 or response.status >= 400:
-            return True  # NÃO está redirecionando
-        return False
-    except Exception:
-        return False
-
-
-def verificar_ssh_banner(ip):
-    try:
-        with socket.create_connection((ip, 22), timeout=5) as sock:
-            banner = sock.recv(1024).decode(errors="ignore")
-            if "SSH" in banner:
-                return True
-        return False
-    except Exception:
-        return False
-
-
-def verificar_mysql_banner(ip):
-    try:
-        with socket.create_connection((ip, 3306), timeout=5) as sock:
-            banner = sock.recv(1024).decode(errors="ignore")
-            if "mysql" in banner.lower():
-                return True
-        return False
-    except Exception:
-        return False
-
-
-def verificar_postgres_banner(ip):
-    try:
-        with socket.create_connection((ip, 5432), timeout=5) as sock:
-            banner = sock.recv(1024).decode(errors="ignore")
-            if "postgres" in banner.lower():
-                return True
-        return False
-    except Exception:
-        return False
-
-
-def verificar_mssql_banner(ip):
-    try:
-        with socket.create_connection((ip, 1433), timeout=5) as sock:
-            banner = sock.recv(1024).decode(errors="ignore")
-            if "microsoft" in banner.lower() or "sql" in banner.lower():
-                return True
-        return False
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, 80), timeout=30)
+        request = b"GET / HTTP/1.1\r\nHost: %b\r\nConnection: close\r\n\r\n" % ip.encode()
+        writer.write(request)
+        await writer.drain()
+        data = await reader.read(1024)
+        writer.close()
+        await writer.wait_closed()
+        return b"HTTP/1.1 200 OK" in data
     except Exception:
         return False
 
+@medir_tempo_execucao_async
+async def obter_banner(ip, porta, palavras_chave):
+    try:
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, porta), timeout=30)
+        banner = await reader.read(1024)
+        banner = banner.decode(errors="ignore").strip()
+        writer.close()
+        await writer.wait_closed()
+        for palavra in palavras_chave:
+            if palavra.lower() in banner.lower():
+                parsed = parse_banner(ip, porta, banner)
+                if parsed:
+                    softwares_detectados.append((ip, porta, parsed))
+                return True, parsed
+        return False, None
+    except Exception:
+        return False, None
 
-def avaliar_riscos(portas_por_ip):
+@medir_tempo_execucao_async
+async def verificar_smtp(ip, porta):
+    try:
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, porta), timeout=10)
+        banner = await asyncio.wait_for(reader.read(1024), timeout=5)
+        banner = banner.decode(errors="ignore").strip()
+        writer.close()
+        await writer.wait_closed()
+        if "220" in banner:
+            software = parse_banner(ip, porta, banner)
+            if software:
+                softwares_detectados.append((ip, porta, software))
+            return "⚠️ SMTP responde sem autenticação inicial", software
+        return "autenticado", None
+    except Exception:
+        return "falha", None
+
+# ========================
+# AVALIAÇÃO DE CADA IP
+# ========================
+async def analisar_ip(ip, portas):
     alertas = []
 
-    for ip, portas in portas_por_ip.items():
-        for porta in portas:
-            if porta == 21:
-                alertas.append((ip, porta, "⚠️ FTP aberto — arquivos da empresa podem estar expostos"))
+    for porta in portas:
+        if porta == 21:
+            alertas.append((ip, porta, "⚠️ FTP aberto — arquivos da empresa podem estar expostos"))
+            await obter_banner(ip, porta, ["ftp"])
 
-            elif porta == 22:
-                if verificar_ssh_banner(ip):
-                    alertas.append((ip, porta, "⚠️ SSH acessível — risco de acesso remoto via força bruta"))
+        elif porta == 22:
+            ok, banner = await obter_banner(ip, porta, ["ssh"])
+            if ok:
+                alertas.append((ip, porta, f"⚠️ SSH acessível — risco de acesso remoto via força bruta ({banner})"))
 
-            elif porta == 23:
-                alertas.append((ip, porta, "🟥 Telnet habilitado — comunicação sem criptografia"))
+        elif porta == 23:
+            alertas.append((ip, porta, "🟥 Telnet habilitado — comunicação sem criptografia"))
 
-            elif porta == 80:
-                if 443 not in portas:
-                    alertas.append((ip, porta, "⚠️ HTTP sem HTTPS — dados podem ser interceptados"))
-                else:
-                    if verificar_http_sem_redirect(ip):
-                        alertas.append((ip, porta, "⚠️ HTTP exposto sem redirecionamento — status 200 OK"))
-                banner = obter_banner_http(ip)
-                if banner:
-                    alertas.append((ip, porta, f"🔍 Banner HTTP detectado: {banner}"))
+        elif porta == 80:
+            if 443 not in portas:
+                alertas.append((ip, porta, "⚠️ HTTP sem HTTPS — dados podem ser interceptados"))
+            elif await verificar_http_sem_redirect(ip):
+                alertas.append((ip, porta, "⚠️ HTTP exposto sem redirecionamento — status 200 OK"))
+            await obter_server_header(ip, "http")
 
-            elif porta == 3389:
-                alertas.append((ip, porta, "🟥 RDP exposto — risco alto de invasão por desktop remoto"))
+        elif porta == 443:
+            await obter_server_header(ip, "https")
 
-            elif porta == 445:
-                alertas.append((ip, porta, "🟥 SMB habilitado — risco de ransomware ou vazamento de arquivos"))
+        elif porta == 3389:
+            alertas.append((ip, porta, "🟥 RDP exposto — risco alto de invasão por desktop remoto"))
 
-            elif porta == 3306:
-                if verificar_mysql_banner(ip):
-                    alertas.append((ip, porta, "⚠️ Banco de dados MySQL acessível publicamente"))
+        elif porta == 445:
+            alertas.append((ip, porta, "🟥 SMB habilitado — risco de ransomware ou vazamento de arquivos"))
 
-            elif porta == 5432:
-                if verificar_postgres_banner(ip):
-                    alertas.append((ip, porta, "⚠️ PostgreSQL exposto — banco de dados acessível externamente"))
+        elif porta == 3306:
+            ok, banner = await obter_banner(ip, porta, ["mysql"])
+            if ok:
+                alertas.append((ip, porta, "⚠️ Banco de dados MySQL acessível publicamente"))
 
-            elif porta == 1433:
-                if verificar_mssql_banner(ip):
-                    alertas.append((ip, porta, "⚠️ Microsoft SQL Server acessível — risco de exposição de dados corporativos"))
+        elif porta == 5432:
+            ok, banner = await obter_banner(ip, porta, ["postgres"])
+            if ok:
+                alertas.append((ip, porta, f"⚠️ PostgreSQL exposto ({banner})"))
 
-            elif porta in [25, 465, 587]:
-                msg = verificar_smtp(ip)
-                if "autenticação" in msg:
-                    alertas.append((ip, porta, f"📧 SMTP aberto — {msg}"))
-            
-            elif porta == 443:
-                # Verifica o banner HTTPS
-                banner_https = obter_banner_https(ip)
-                if banner_https:
-                    alertas.append((ip, porta, f"🔍 Banner HTTPS detectado: {banner_https}"))
+        elif porta == 1433:
+            ok, banner = await obter_banner(ip, porta, ["microsoft", "sql"])
+            if ok:
+                alertas.append((ip, porta, f"⚠️ Microsoft SQL Server acessível ({banner})"))
+
+        elif porta in [25, 465, 587]:
+            msg, software = await verificar_smtp(ip, porta)
+            if "autenticação" in msg:
+                texto = f"📧 SMTP aberto — {msg}"
+                if software:
+                    texto += f" ({software})"
+                alertas.append((ip, porta, texto))
+
+    return alertas
+
+# ========================
+# FUNÇÃO PRINCIPAL
+# ========================
+async def avaliar_riscos(portas_por_ip):
+    alertas = []
+    global softwares_detectados
+    softwares_detectados = []
+
+    async def analisar_com_timeout(ip, portas):
+        try:
+            return await asyncio.wait_for(analisar_ip(ip, portas), timeout=130  )
+        except asyncio.TimeoutError:
+            print(f"[TIMEOUT] análise do IP {ip} excedeu 130s e foi abortada.")
+            return []
+
+    tarefas = [analisar_com_timeout(ip, portas) for ip, portas in portas_por_ip.items()]
+    resultados = await asyncio.gather(*tarefas)
+
+    for resultado in resultados:
+        alertas.extend(resultado)
+
+    if softwares_detectados:
+        print("\n=== Softwares detectados para análise futura de CVEs ===")
+        for ip, porta, software in softwares_detectados:
+            print(f"{ip}:{porta} → {software}")
 
     return alertas

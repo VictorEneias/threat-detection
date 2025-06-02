@@ -7,7 +7,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # ajuste se for necessário
+    allow_origins=["*"],  # ajuste se necessário para produção
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -17,5 +17,5 @@ class AnaliseRequest(BaseModel):
     email: str
 
 @app.post("/api/analisar")
-def analisar(req: AnaliseRequest):
-    return executar_analise(req.email)
+async def analisar(req: AnaliseRequest):
+    return await executar_analise(req.email)

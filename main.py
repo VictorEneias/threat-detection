@@ -1,3 +1,4 @@
+import asyncio
 import os
 import threading
 import tldextract
@@ -79,7 +80,7 @@ def main():
     # === Finalização ===
     limpar_pasta_data()
 
-def executar_analise(email):
+async def executar_analise(email):
     os.makedirs("data", exist_ok=True)
     dominio = extrair_dominio(email)
 
@@ -100,7 +101,9 @@ def executar_analise(email):
     salvar_ips(ips, iplist_path)
     run_naabu(iplist_path, naabu_path)
     portas_abertas = parse_naabu(naabu_path)
-    alertas = avaliar_riscos(portas_abertas)
+
+    # 🟢 Use await aqui, pois `avaliar_riscos` agora é async
+    alertas = await avaliar_riscos(portas_abertas)
 
     if not portas_abertas:
         return {
@@ -128,7 +131,6 @@ def executar_analise(email):
             for ip, porta, msg in alertas
         ]
     }
-
 
 if __name__ == "__main__":
     main()
