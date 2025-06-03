@@ -2,18 +2,11 @@ import asyncio
 import re
 import httpx
 import time
+from modules.cve_lookup import buscar_cves_para_softwares
 
-# ========================
-# CONFIGURAÇÕES DO SISTEMA
-# ========================
 PORTAS_CRITICAS = [21, 22, 23, 80, 443, 3389, 445, 3306, 5432, 1433, 25, 465, 587]
-
-# Armazenamento temporário de softwares detectados para visualização
 softwares_detectados = []
 
-# =============================
-# UTILITÁRIO DE MEDIÇÃO DE TEMPO
-# =============================
 def medir_tempo_execucao_async(func):
     async def wrapper(ip, *args, **kwargs):
         inicio = time.time()
@@ -24,16 +17,10 @@ def medir_tempo_execucao_async(func):
         return resultado
     return wrapper
 
-# ========================
-# VERIFICAÇÕES DE SERVIÇO
-# ========================
-
 def parse_banner(ip, porta, banner):
     banner = banner.strip()
     if not banner:
         return None
-
-    # FTP
     if porta == 21:
         if "pure-ftpd" in banner.lower():
             return "Pure-FTPd"
@@ -41,23 +28,15 @@ def parse_banner(ip, porta, banner):
             return "ProFTPD"
         if "vsftpd" in banner.lower():
             return "vsFTPd"
-
-    # SSH
     if porta == 22 and banner.startswith("SSH-"):
         return banner
-
-    # SMTP
     if porta in [25, 465, 587]:
         match = re.search(r"ESMTP\s+([\w\-\./]+)", banner, re.IGNORECASE)
         if match:
             return f"ESMTP {match.group(1)}"
-
-    # MySQL/MariaDB
     if porta == 3306 and "mysql_native_password" in banner:
         match = re.search(r"([Mm]\s*\d+\.\d+(\.\d+)?(?:-[^\s]+)?)", banner)
         return match.group(1) if match else banner[:60]
-
-    # Genérico (fallback)
     return banner[:60]
 
 @medir_tempo_execucao_async
@@ -122,9 +101,6 @@ async def verificar_smtp(ip, porta):
     except Exception:
         return "falha", None
 
-# ========================
-# AVALIAÇÃO DE CADA IP
-# ========================
 async def analisar_ip(ip, portas):
     alertas = []
 
@@ -182,9 +158,6 @@ async def analisar_ip(ip, portas):
 
     return alertas
 
-# ========================
-# FUNÇÃO PRINCIPAL
-# ========================
 async def avaliar_riscos(portas_por_ip):
     alertas = []
     global softwares_detectados
@@ -192,7 +165,7 @@ async def avaliar_riscos(portas_por_ip):
 
     async def analisar_com_timeout(ip, portas):
         try:
-            return await asyncio.wait_for(analisar_ip(ip, portas), timeout=130  )
+            return await asyncio.wait_for(analisar_ip(ip, portas), timeout=130)
         except asyncio.TimeoutError:
             print(f"[TIMEOUT] análise do IP {ip} excedeu 130s e foi abortada.")
             return []
@@ -207,5 +180,11 @@ async def avaliar_riscos(portas_por_ip):
         print("\n=== Softwares detectados para análise futura de CVEs ===")
         for ip, porta, software in softwares_detectados:
             print(f"{ip}:{porta} → {software}")
+
+        print("\n=== Alertas de CVEs com base nos softwares detectados ===")
+        alertas_cve = await buscar_cves_para_softwares(softwares_detectados)
+
+        for alerta in alertas_cve:
+            print(f"{alerta['ip']}:{alerta['porta']} → {alerta['software']} vulnerável a {alerta['cve_id']} (CVSS: {alerta['cvss']})")
 
     return alertas
