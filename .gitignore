@@ -1,2 +1,4 @@
 node_modules/
-echo "CPE/official-cpe-dictionary_v2.3.xml" >> .gitignore
+CPE/official-cpe-dictionary_v2.3.xml
+**/__pycache__/
+**/*.py[cod]
