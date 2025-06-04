@@ -1,11 +1,31 @@
-from pymongo import MongoClient
+from motor.motor_asyncio import AsyncIOMotorClient
 import re
 import xml.etree.ElementTree as ET
 import os
+import asyncio
 
 CPE_XML_PATH = os.path.join(os.path.dirname(__file__), '../CPE/official-cpe-dictionary_v2.3.xml')
-client = MongoClient("mongodb://localhost:27017")
+client = AsyncIOMotorClient("mongodb://localhost:27017")
 db = client.cvedb
+
+# --------------------------------------------------
+# Carrega o XML de CPE apenas uma vez e cria um índice
+# --------------------------------------------------
+_cpe_entries = []  # list of tuples (lowercase name, original name)
+_cpe_loaded = False
+
+def _load_cpe_index():
+    """Parseia o XML de CPE apenas uma vez."""
+    global _cpe_loaded
+    if _cpe_loaded:
+        return
+    tree = ET.parse(CPE_XML_PATH)
+    root = tree.getroot()
+    ns = {'cpe23': 'http://scap.nist.gov/schema/cpe-extension/2.3'}
+    for entry in root.findall('.//cpe23:cpe23-item', ns):
+        name = entry.get('name')
+        _cpe_entries.append((name.lower(), name))
+    _cpe_loaded = True
 
 # ==================================================
 # FUNÇÃO PRINCIPAL CHAMADA PELO RISK_MAPPER
@@ -21,51 +41,62 @@ async def buscar_cves_para_softwares(lista_softwares):
             softwares_validos.append((ip, porta, m))
 
     print("\n=== BUSCANDO CPEs ===")
-    tree = ET.parse(CPE_XML_PATH)
-    root = tree.getroot()
-    ns = {'cpe23': 'http://scap.nist.gov/schema/cpe-extension/2.3'}
+    _load_cpe_index()
 
-    softwares_com_cpe = []
-    for ip, porta, item in softwares_validos:
+    def _find_cpe(nome: str, versao: str):
+        for lower, full in _cpe_entries:
+            if nome in lower and versao in full:
+                return full
+        return None
+
+    async def procurar_cpe(ip, porta, item):
         try:
             nome, versao = item.split('/')
             nome = nome.lower()
             versao = versao.strip()
-            cpes_encontradas = []
-
-            for entry in root.findall('.//cpe23:cpe23-item', ns):
-                cpe_nome = entry.get('name')
-                if nome in cpe_nome.lower() and versao in cpe_nome:
-                    cpes_encontradas.append(cpe_nome)
-            if cpes_encontradas:
-                print(f"[✔️] {nome} {versao} → {cpes_encontradas[0]}")
-                softwares_com_cpe.append((ip, porta, item, cpes_encontradas[0]))
+            loop = asyncio.get_running_loop()
+            cpe = await loop.run_in_executor(None, _find_cpe, nome, versao)
+            if cpe:
+                print(f"[✔️] {nome} {versao} → {cpe}")
+                return (ip, porta, item, cpe)
             else:
                 print(f"[❌] NENHUMA CPE para {nome} {versao}")
+                return None
         except Exception as e:
             print(f"[ERRO] ao buscar CPE: {item} - {e}")
+            return None
+
+    tarefas_cpe = [procurar_cpe(ip, porta, item) for ip, porta, item in softwares_validos]
+    resultados_cpe = await asyncio.gather(*tarefas_cpe)
+
+    softwares_com_cpe = [r for r in resultados_cpe if r]
 
     print("\n=== BUSCANDO CVEs ===")
     alertas_cves = []
-    for ip, porta, software, cpe in softwares_com_cpe:
-        query = {"vulnerable_configuration": cpe}
-        resultados = db.cves.find(query, {
-            "id": 1, "cvss": 1, "cvss3": 1
-        }).limit(5)
+    sem = asyncio.Semaphore(10)
 
-        cves = list(resultados)
+    async def consultar_cves(ip, porta, software, cpe):
+        async with sem:
+            query = {"vulnerable_configuration": cpe}
+            cursor = db.cves.find(query, {"id": 1, "cvss": 1, "cvss3": 1}).limit(5)
+            cves = await cursor.to_list(length=5)
         if not cves:
             print(f"[CVE] Nenhuma CVE para {cpe}")
-            continue
-
-        for cve in cves:
-            alerta = {
+            return []
+        return [
+            {
                 'ip': ip,
                 'porta': porta,
                 'software': software,
                 'cve_id': cve.get('id'),
                 'cvss': cve.get('cvss3') or cve.get('cvss')
             }
-            alertas_cves.append(alerta)
+            for cve in cves
+        ]
+
+    tarefas = [consultar_cves(ip, porta, software, cpe) for ip, porta, software, cpe in softwares_com_cpe]
+    resultados = await asyncio.gather(*tarefas)
+    for r in resultados:
+        alertas_cves.extend(r)
 
     return alertas_cves

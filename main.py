@@ -1,12 +1,11 @@
 import asyncio
 import os
-import threading
 import tldextract
 from modules.subfinder import run_subfinder
 from modules.naabu import run_naabu
 from parsers.parse_dnsx import parse_dnsx
 from parsers.parse_naabu import parse_naabu
-from intelligence.risk_mapper import avaliar_riscos, avaliar_portas, avaliar_softwares
+from intelligence.risk_mapper import avaliar_portas, avaliar_softwares
 import uuid
 
 
@@ -34,52 +33,6 @@ def limpar_pasta_data():
             os.remove(caminho)
     print("\n[INFO] Pasta 'data/' limpa para a próxima execução.")
 
-
-def main():
-    os.makedirs("data", exist_ok=True)
-    print("=== NGSX - Análise de Exposição Corporativa ===")
-    email = input("Digite seu e-mail corporativo: ").strip()
-    dominio = extrair_dominio(email)
-
-    if not dominio:
-        print("[ERRO] E-mail inválido.")
-        return
-
-    print(f"[INFO] Iniciando varredura para o domínio: {dominio}")
-
-    # === Caminhos dos arquivos ===
-    subs_path = os.path.join("data", f"{dominio}_subs.txt")
-    resolved_path = os.path.join("data", f"{dominio}_resolved.txt")
-    iplist_path = os.path.join("data", f"{dominio}_iplist.txt")
-    naabu_path = os.path.join("data", f"{dominio}_naabu.txt")
-
-    # === Etapa 1: Subfinder + DNSx ===
-    run_subfinder(dominio, subs_path, resolved_path)
-
-    # === Etapa 2: Parse dos IPs únicos ===
-    ips = parse_dnsx(resolved_path)
-    print(f"[OK] IPs únicos identificados: {len(ips)}")
-    if not ips:
-        print("[ERRO] Nenhum IP encontrado.")
-        return
-
-    salvar_ips(ips, iplist_path)
-
-    # === Etapa 3: Naabu + análise de riscos ===
-    
-    run_naabu(iplist_path, naabu_path)
-    portas_abertas = parse_naabu(naabu_path)
-    print("\n=== IPs com portas abertas detectadas ===")
-    for ip, portas in portas_abertas.items():
-        print(f"{ip}: {', '.join(map(str, portas))}")
-    alertas = avaliar_riscos(portas_abertas)
-    print("\n=== ALERTAS DE SEGURANÇA ===")
-    for ip, porta, msg in alertas:
-        print(f"{ip}:{porta} → {msg}")
-    
-
-    # === Finalização ===
-    limpar_pasta_data()
 
 jobs = {}
 
@@ -151,6 +104,3 @@ async def consultar_software_alertas(job_id: str):
     if job["software_alertas"] is None:
         return {"status": "pendente"}
     return {"alertas": job["software_alertas"], "dominio": job["dominio"]}
-
-if __name__ == "__main__":
-    main()
