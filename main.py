@@ -6,6 +6,7 @@ from modules.naabu import run_naabu
 from parsers.parse_dnsx import parse_dnsx
 from parsers.parse_naabu import parse_naabu
 from intelligence.risk_mapper import avaliar_portas, avaliar_softwares
+from intelligence.scoring import calcular_score_portas, calcular_score_softwares
 import uuid
 
 
@@ -66,10 +67,12 @@ async def executar_analise(email):
     portas_abertas = parse_naabu(naabu_path)
 
     alertas_portas, softwares = await avaliar_portas(portas_abertas)
+    port_score = calcular_score_portas(alertas_portas, len(ips))
 
     # disparar software analysis em background
     async def processar_softwares():
         alertas_softwares = await avaliar_softwares(softwares)
+        software_score = calcular_score_softwares(alertas_softwares)
         jobs[job_id]["software_alertas"] = [
             {
                 "ip": a["ip"],
@@ -80,9 +83,15 @@ async def executar_analise(email):
             }
             for a in alertas_softwares
         ]
+        jobs[job_id]["software_score"] = software_score
+        jobs[job_id]["final_score"] = round((port_score + software_score) / 2, 2)
         limpar_pasta_data()
 
-    jobs[job_id] = {"software_alertas": None, "dominio": dominio}
+    jobs[job_id] = {
+        "software_alertas": None,
+        "dominio": dominio,
+        "port_score": port_score,
+    }
     asyncio.create_task(processar_softwares())
 
     return {
@@ -92,7 +101,8 @@ async def executar_analise(email):
         "alertas": [
             {"ip": ip, "porta": porta, "mensagem": msg}
             for ip, porta, msg in alertas_portas
-        ]
+        ],
+        "port_score": port_score,
     }
 
 
@@ -102,5 +112,11 @@ async def consultar_software_alertas(job_id: str):
     if not job:
         return {"erro": "Job não encontrado"}
     if job["software_alertas"] is None:
-        return {"status": "pendente"}
-    return {"alertas": job["software_alertas"], "dominio": job["dominio"]}
+        return {"status": "pendente", "port_score": job.get("port_score")}
+    return {
+        "alertas": job["software_alertas"],
+        "dominio": job["dominio"],
+        "port_score": job.get("port_score"),
+        "software_score": job.get("software_score"),
+        "final_score": job.get("final_score"),
+    }
