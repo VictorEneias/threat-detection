@@ -104,49 +104,50 @@ async def verificar_smtp(ip, porta):
 async def analisar_ip(ip, portas):
     alertas = []
 
-    for porta in portas:
+    async def processar_porta(porta):
+        sub_alertas = []
         if porta == 21:
-            alertas.append((ip, porta, "⚠️ FTP aberto — arquivos da empresa podem estar expostos"))
+            sub_alertas.append((ip, porta, "⚠️ FTP aberto — arquivos da empresa podem estar expostos"))
             await obter_banner(ip, porta, ["ftp"])
 
         elif porta == 22:
             ok, banner = await obter_banner(ip, porta, ["ssh"])
             if ok:
-                alertas.append((ip, porta, f"⚠️ SSH acessível — risco de acesso remoto via força bruta ({banner})"))
+                sub_alertas.append((ip, porta, f"⚠️ SSH acessível — risco de acesso remoto via força bruta ({banner})"))
 
         elif porta == 23:
-            alertas.append((ip, porta, "🟥 Telnet habilitado — comunicação sem criptografia"))
+            sub_alertas.append((ip, porta, "🟥 Telnet habilitado — comunicação sem criptografia"))
 
         elif porta == 80:
             if 443 not in portas:
-                alertas.append((ip, porta, "⚠️ HTTP sem HTTPS — dados podem ser interceptados"))
+                sub_alertas.append((ip, porta, "⚠️ HTTP sem HTTPS — dados podem ser interceptados"))
             elif await verificar_http_sem_redirect(ip):
-                alertas.append((ip, porta, "⚠️ HTTP exposto sem redirecionamento — status 200 OK"))
+                sub_alertas.append((ip, porta, "⚠️ HTTP exposto sem redirecionamento — status 200 OK"))
             await obter_server_header(ip, "http")
 
         elif porta == 443:
             await obter_server_header(ip, "https")
 
         elif porta == 3389:
-            alertas.append((ip, porta, "🟥 RDP exposto — risco alto de invasão por desktop remoto"))
+            sub_alertas.append((ip, porta, "🟥 RDP exposto — risco alto de invasão por desktop remoto"))
 
         elif porta == 445:
-            alertas.append((ip, porta, "🟥 SMB habilitado — risco de ransomware ou vazamento de arquivos"))
+            sub_alertas.append((ip, porta, "🟥 SMB habilitado — risco de ransomware ou vazamento de arquivos"))
 
         elif porta == 3306:
             ok, banner = await obter_banner(ip, porta, ["mysql"])
             if ok:
-                alertas.append((ip, porta, "⚠️ Banco de dados MySQL acessível publicamente"))
+                sub_alertas.append((ip, porta, "⚠️ Banco de dados MySQL acessível publicamente"))
 
         elif porta == 5432:
             ok, banner = await obter_banner(ip, porta, ["postgres"])
             if ok:
-                alertas.append((ip, porta, f"⚠️ PostgreSQL exposto ({banner})"))
+                sub_alertas.append((ip, porta, f"⚠️ PostgreSQL exposto ({banner})"))
 
         elif porta == 1433:
             ok, banner = await obter_banner(ip, porta, ["microsoft", "sql"])
             if ok:
-                alertas.append((ip, porta, f"⚠️ Microsoft SQL Server acessível ({banner})"))
+                sub_alertas.append((ip, porta, f"⚠️ Microsoft SQL Server acessível ({banner})"))
 
         elif porta in [25, 465, 587]:
             msg, software = await verificar_smtp(ip, porta)
@@ -154,8 +155,13 @@ async def analisar_ip(ip, portas):
                 texto = f"📧 SMTP aberto — {msg}"
                 if software:
                     texto += f" ({software})"
-                alertas.append((ip, porta, texto))
+                sub_alertas.append((ip, porta, texto))
+        return sub_alertas
 
+    tarefas = [processar_porta(p) for p in portas]
+    resultados = await asyncio.gather(*tarefas)
+    for r in resultados:
+        alertas.extend(r)
     return alertas
 
 async def avaliar_portas(portas_por_ip):
