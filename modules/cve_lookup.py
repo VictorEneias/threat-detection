@@ -43,9 +43,12 @@ async def buscar_cves_para_softwares(lista_softwares):
     print("\n=== BUSCANDO CPEs ===")
     _load_cpe_index()
 
-    def _find_cpe(nome: str, versao: str):
+    def _find_cpe(*tokens: str):
+        """Busca uma CPE contendo todos os tokens fornecidos."""
+        versao = tokens[-1]
+        nomes = tokens[:-1]
         for lower, full in _cpe_entries:
-            if nome in lower and versao in full:
+            if all(n in lower for n in nomes) and versao in full:
                 return full
         return None
 
@@ -54,8 +57,13 @@ async def buscar_cves_para_softwares(lista_softwares):
             nome, versao = item.split('/')
             nome = nome.lower()
             versao = versao.strip()
+            partes_nome = re.split('[-_]', nome)
             loop = asyncio.get_running_loop()
-            cpe = await loop.run_in_executor(None, _find_cpe, nome, versao)
+            if len(partes_nome) >= 2:
+                cpe = await loop.run_in_executor(None, _find_cpe,
+                                                  partes_nome[0], partes_nome[1], versao)
+            else:
+                cpe = await loop.run_in_executor(None, _find_cpe, nome, versao)
             if cpe:
                 print(f"[✔️] {nome} {versao} → {cpe}")
                 return (ip, porta, item, cpe)
