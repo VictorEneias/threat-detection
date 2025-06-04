@@ -7,6 +7,9 @@ export default function EmailForm() {
   const [loadingSoft, setLoadingSoft] = useState(false);
   const [portAlerts, setPortAlerts] = useState([]);
   const [softAlerts, setSoftAlerts] = useState([]);
+  const [portScore, setPortScore] = useState(0);
+  const [softScore, setSoftScore] = useState(0);
+  const [finalScore, setFinalScore] = useState(null);
   const [showPort, setShowPort] = useState(false);
   const [showSoft, setShowSoft] = useState(false);
   const [showCards, setShowCards] = useState(false);
@@ -18,6 +21,9 @@ export default function EmailForm() {
     setLoadingSoft(true);
     setPortAlerts([]);
     setSoftAlerts([]);
+    setPortScore(0);
+    setSoftScore(0);
+    setFinalScore(null);
 
     try {
       const res = await fetch('http://localhost:8000/api/port-analysis', {
@@ -36,6 +42,7 @@ export default function EmailForm() {
         return;
       }
       setPortAlerts(data.alertas || []);
+      setPortScore(data.port_score || 0);
       setLoadingPort(false);
       pollSoftware(data.job_id);
     } catch (err) {
@@ -52,6 +59,8 @@ export default function EmailForm() {
       const data = await res.json();
       if (data.alertas) {
         setSoftAlerts(data.alertas);
+        setSoftScore(data.software_score || 0);
+        setFinalScore(data.final_score ?? null);
         setLoadingSoft(false);
       } else {
         setTimeout(() => pollSoftware(id), 2000);
@@ -88,7 +97,7 @@ export default function EmailForm() {
               <p className="animate-pulse">Calculando risco...</p>
             ) : (
               <>
-                <p className="mt-2">Score: {portAlerts.length}</p>
+                <p className="mt-2">Score: {portScore}</p>
                 <button type="button" className="underline text-sm" onClick={() => setShowPort(!showPort)}>
                   Ver Detalhes
                 </button>
@@ -111,7 +120,7 @@ export default function EmailForm() {
               <p className="animate-pulse">Calculando risco...</p>
             ) : (
               <>
-                <p className="mt-2">Score: {softAlerts.length}</p>
+                <p className="mt-2">Score: {softScore}</p>
                 <button type="button" className="underline text-sm" onClick={() => setShowSoft(!showSoft)}>
                   Ver Detalhes
                 </button>
@@ -127,6 +136,13 @@ export default function EmailForm() {
               </>
             )}
           </div>
+
+          {finalScore !== null && (
+            <div className="bg-[#ec008c] text-black p-4 rounded shadow">
+              <h2 className="font-semibold">Score Final</h2>
+              <p className="mt-2 text-xl font-bold">{finalScore}</p>
+            </div>
+          )}
           <div className="bg-[#ec008c] text-black p-4 rounded shadow">
             <h2 className="font-semibold">Outros Módulos</h2>
             <p className="italic">Em breve...</p>
