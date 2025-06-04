@@ -3,16 +3,23 @@ import { useState } from 'react';
 
 export default function EmailForm() {
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [resultado, setResultado] = useState('');
+  const [loadingPort, setLoadingPort] = useState(false);
+  const [loadingSoft, setLoadingSoft] = useState(false);
+  const [jobId, setJobId] = useState(null);
+  const [portAlerts, setPortAlerts] = useState([]);
+  const [softAlerts, setSoftAlerts] = useState([]);
+  const [showPort, setShowPort] = useState(false);
+  const [showSoft, setShowSoft] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setResultado('');
+    setLoadingPort(true);
+    setLoadingSoft(true);
+    setPortAlerts([]);
+    setSoftAlerts([]);
 
     try {
-      const res = await fetch('http://localhost:8000/api/analisar', {
+      const res = await fetch('http://localhost:8000/api/port-analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -20,33 +27,37 @@ export default function EmailForm() {
         body: JSON.stringify({ email })
       });
 
-      const data = await res.json();  // <- resposta do backend
+      const data = await res.json();
       if (data.erro) {
-        setResultado(`Erro: ${data.erro}`);
-      } else if (data.alertas && data.alertas.length > 0) {
-        const texto = data.alertas.map(a => `${a.ip}:${a.porta} → ${a.mensagem}`).join('\n');
-        setResultado(
-          <>
-            <h2 className="text-lg font-semibold mb-2">🔒 Alertas de Segurança:</h2>
-            <ul className="list-disc list-inside space-y-1 text-sm">
-            {data.alertas.map((a, i) => (
-                <li key={i}>
-                <strong>{a.ip}:{a.porta}</strong> → {a.mensagem}
-                </li>
-            ))}
-            </ul>
-          </>
-        );
-      }     else if (data.mensagem) {
-        setResultado(data.mensagem);
-      } else {
-        setResultado("Análise concluída, sem alertas.");
+        alert(`Erro: ${data.erro}`);
+        setLoadingPort(false);
+        setLoadingSoft(false);
+        return;
       }
-
+      setJobId(data.job_id);
+      setPortAlerts(data.alertas || []);
+      setLoadingPort(false);
+      pollSoftware(data.job_id);
     } catch (err) {
       alert('Erro ao conectar ao backend');
-    } finally {
-      setLoading(false);
+      setLoadingPort(false);
+      setLoadingSoft(false);
+    }
+  };
+
+  const pollSoftware = async (id) => {
+    if (!id) return;
+    try {
+      const res = await fetch(`http://localhost:8000/api/software-analysis/${id}`);
+      const data = await res.json();
+      if (data.alertas) {
+        setSoftAlerts(data.alertas);
+        setLoadingSoft(false);
+      } else {
+        setTimeout(() => pollSoftware(id), 2000);
+      }
+    } catch (e) {
+      setTimeout(() => pollSoftware(id), 2000);
     }
   };
 
@@ -63,16 +74,64 @@ export default function EmailForm() {
       <button
         type="submit"
         className="bg-blue-600 text-white px-4 py-2 rounded"
-        disabled={loading}
+        disabled={loadingPort || loadingSoft}
       >
-        {loading ? 'Analisando...' : 'Analisar'}
+        {loadingPort ? 'Analisando...' : 'Analisar'}
       </button>
 
-      {resultado && (
-        <div className="mt-4 bg-gray-200 p-3 rounded text-black">
-          {resultado}
+      <div className="space-y-4">
+        <div className="border p-4 rounded">
+          <h2 className="font-semibold">Port Analysis</h2>
+          {loadingPort && (
+            <div className="w-full bg-gray-200 h-2 rounded mt-2 overflow-hidden">
+              <div className="bg-blue-500 h-2 animate-pulse w-full"></div>
+            </div>
+          )}
+          {!loadingPort && (
+            <>
+              <p className="mt-2">Score: {portAlerts.length}</p>
+              <button type="button" className="underline text-sm" onClick={() => setShowPort(!showPort)}>
+                Click for Details
+              </button>
+              {showPort && (
+                <ul className="list-disc list-inside text-sm mt-2">
+                  {portAlerts.map((a, i) => (
+                    <li key={i}>
+                      <strong>{a.ip}:{a.porta}</strong> → {a.mensagem}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
         </div>
-      )}
+
+        <div className="border p-4 rounded">
+          <h2 className="font-semibold">Software Analysis</h2>
+          {loadingSoft && (
+            <div className="w-full bg-gray-200 h-2 rounded mt-2 overflow-hidden">
+              <div className="bg-blue-500 h-2 animate-pulse w-full"></div>
+            </div>
+          )}
+          {!loadingSoft && (
+            <>
+              <p className="mt-2">Score: {softAlerts.length}</p>
+              <button type="button" className="underline text-sm" onClick={() => setShowSoft(!showSoft)}>
+                Click for Details
+              </button>
+              {showSoft && (
+                <ul className="list-disc list-inside text-sm mt-2">
+                  {softAlerts.map((a, i) => (
+                    <li key={i}>
+                      <strong>{a.ip}:{a.porta}</strong> → {a.software} vulnerável a {a.cve_id} (CVSS {a.cvss})
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </form>
   );
 }

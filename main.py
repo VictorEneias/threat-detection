@@ -6,7 +6,8 @@ from modules.subfinder import run_subfinder
 from modules.naabu import run_naabu
 from parsers.parse_dnsx import parse_dnsx
 from parsers.parse_naabu import parse_naabu
-from intelligence.risk_mapper import avaliar_riscos
+from intelligence.risk_mapper import avaliar_riscos, avaliar_portas, avaliar_softwares
+import uuid
 
 
 def extrair_dominio(email):
@@ -80,12 +81,21 @@ def main():
     # === Finalização ===
     limpar_pasta_data()
 
+jobs = {}
+
+
 async def executar_analise(email):
+    """Executa a enumeração e análise, retornando apenas alertas de portas.
+    O processamento de softwares continua em background e pode ser
+    consultado depois via job_id."""
+
     os.makedirs("data", exist_ok=True)
     dominio = extrair_dominio(email)
 
     if not dominio:
         return {"erro": "E-mail inválido."}
+
+    job_id = str(uuid.uuid4())
 
     subs_path = os.path.join("data", f"{dominio}_subs.txt")
     resolved_path = os.path.join("data", f"{dominio}_resolved.txt")
@@ -102,35 +112,45 @@ async def executar_analise(email):
     run_naabu(iplist_path, naabu_path)
     portas_abertas = parse_naabu(naabu_path)
 
-    # 🟢 Use await aqui, pois `avaliar_riscos` agora é async
-    alertas = await avaliar_riscos(portas_abertas)
+    alertas_portas, softwares = await avaliar_portas(portas_abertas)
 
-    if not portas_abertas:
-        return {
-            "dominio": dominio,
-            "ips_com_portas": {},
-            "alertas": [],
-            "mensagem": "Nenhuma porta aberta detectada nos IPs encontrados."
-        }
+    # disparar software analysis em background
+    async def processar_softwares():
+        alertas_softwares = await avaliar_softwares(softwares)
+        jobs[job_id]["software_alertas"] = [
+            {
+                "ip": a["ip"],
+                "porta": a["porta"],
+                "software": a["software"],
+                "cve_id": a["cve_id"],
+                "cvss": a["cvss"],
+            }
+            for a in alertas_softwares
+        ]
+        limpar_pasta_data()
 
-    if not alertas:
-        return {
-            "dominio": dominio,
-            "ips_com_portas": portas_abertas,
-            "alertas": [],
-            "mensagem": "Portas abertas detectadas, mas sem alertas de risco mapeados."
-        }
-
-    limpar_pasta_data()
+    jobs[job_id] = {"software_alertas": None, "dominio": dominio}
+    asyncio.create_task(processar_softwares())
 
     return {
+        "job_id": job_id,
         "dominio": dominio,
         "ips_com_portas": portas_abertas,
         "alertas": [
             {"ip": ip, "porta": porta, "mensagem": msg}
-            for ip, porta, msg in alertas
+            for ip, porta, msg in alertas_portas
         ]
     }
+
+
+async def consultar_software_alertas(job_id: str):
+    """Retorna resultados de CVEs quando estiverem prontos."""
+    job = jobs.get(job_id)
+    if not job:
+        return {"erro": "Job não encontrado"}
+    if job["software_alertas"] is None:
+        return {"status": "pendente"}
+    return {"alertas": job["software_alertas"], "dominio": job["dominio"]}
 
 if __name__ == "__main__":
     main()
