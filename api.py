@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from main import executar_analise
+from main import executar_analise, consultar_software_alertas
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -16,6 +16,11 @@ app.add_middleware(
 class AnaliseRequest(BaseModel):
     email: str
 
-@app.post("/api/analisar")
-async def analisar(req: AnaliseRequest):
+@app.post("/api/port-analysis")
+async def iniciar(req: AnaliseRequest):
     return await executar_analise(req.email)
+
+
+@app.get("/api/software-analysis/{job_id}")
+async def resultado(job_id: str):
+    return await consultar_software_alertas(job_id)
