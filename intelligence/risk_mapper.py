@@ -158,7 +158,8 @@ async def analisar_ip(ip, portas):
 
     return alertas
 
-async def avaliar_riscos(portas_por_ip):
+async def avaliar_portas(portas_por_ip):
+    """Avalia riscos com base em serviços de rede abertos."""
     alertas = []
     global softwares_detectados
     softwares_detectados = []
@@ -176,15 +177,20 @@ async def avaliar_riscos(portas_por_ip):
     for resultado in resultados:
         alertas.extend(resultado)
 
-    if softwares_detectados:
-        print("\n=== Softwares detectados para análise futura de CVEs ===")
-        for ip, porta, software in softwares_detectados:
-            print(f"{ip}:{porta} → {software}")
+    return alertas, softwares_detectados
 
-        print("\n=== Alertas de CVEs com base nos softwares detectados ===")
-        alertas_cve = await buscar_cves_para_softwares(softwares_detectados)
 
-        for alerta in alertas_cve:
-            print(f"{alerta['ip']}:{alerta['porta']} → {alerta['software']} vulnerável a {alerta['cve_id']} (CVSS: {alerta['cvss']})")
+async def avaliar_softwares(softwares):
+    """Retorna alertas de CVEs baseados nos softwares detectados."""
+    if not softwares:
+        return []
 
-    return alertas
+    alertas_cve = await buscar_cves_para_softwares(softwares)
+    return alertas_cve
+
+
+async def avaliar_riscos(portas_por_ip):
+    """Executa avaliação de portas e softwares em sequência."""
+    alertas_portas, softwares = await avaliar_portas(portas_por_ip)
+    alertas_softwares = await avaliar_softwares(softwares)
+    return alertas_portas, alertas_softwares
