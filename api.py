@@ -24,3 +24,4 @@ async def iniciar(req: AnaliseRequest):
 @app.get("/api/software-analysis/{job_id}")
 async def resultado(job_id: str):
     return await consultar_software_alertas(job_id)
+

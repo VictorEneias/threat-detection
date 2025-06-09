@@ -11,3 +11,4 @@ def parse_dnsx(filepath):
         print(f"[ERRO] Arquivo {filepath} não encontrado.")
 
     return list(ips_unicos)
+
