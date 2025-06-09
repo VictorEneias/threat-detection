@@ -56,15 +56,15 @@ async def executar_analise(email):
     iplist_path = os.path.join("data", f"{dominio}_iplist.txt")
     naabu_path = os.path.join("data", f"{dominio}_naabu.txt")
 
-    run_subfinder(dominio, subs_path, resolved_path)
-    ips = parse_dnsx(resolved_path)
+    await run_subfinder(dominio, subs_path, resolved_path)
+    ips = await asyncio.to_thread(parse_dnsx, resolved_path)
 
     if not ips:
         return {"erro": "Nenhum IP encontrado."}
 
-    salvar_ips(ips, iplist_path)
-    run_naabu(iplist_path, naabu_path)
-    portas_abertas = parse_naabu(naabu_path)
+    await asyncio.to_thread(salvar_ips, ips, iplist_path)
+    await run_naabu(iplist_path, naabu_path)
+    portas_abertas = await asyncio.to_thread(parse_naabu, naabu_path)
 
     alertas_portas, softwares = await avaliar_portas(portas_abertas)
     port_score = calcular_score_portas(alertas_portas, len(ips))
