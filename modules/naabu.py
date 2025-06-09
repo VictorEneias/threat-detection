@@ -34,18 +34,15 @@ async def run_naabu(ip_list_path: str, output_path: str, ports=None, timeout: in
         print(f"[Naabu] Escaneando IPs em {ip_list_path} nas portas: {ports_str}")
         await _run(
             [
-                "naabu",
-                "-list",
-                ip_list_path,
-                "-p",
-                ports_str,
-                "-rate",
-                "1000",
-                "-retries",
-                "1",
-                "-o",
-                output_path,
-                "-silent",
+                "sudo", "naabu",
+                "-list", ip_list_path,
+                "-p", ports_str,
+                "-rate", "500",
+                "-retries", "2",
+                "-timeout", "8000",
+                "-o", output_path,
+                "-s", "s",
+                "-v", "-debug",
             ],
             timeout=timeout,
         )
