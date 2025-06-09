@@ -3,19 +3,22 @@ import re
 import xml.etree.ElementTree as ET
 import os
 import asyncio
+from collections import defaultdict
 
 CPE_XML_PATH = os.path.join(os.path.dirname(__file__), '../CPE/official-cpe-dictionary_v2.3.xml')
 client = AsyncIOMotorClient("mongodb://localhost:27017")
 db = client.cvedb
 
 # --------------------------------------------------
-# Carrega o XML de CPE apenas uma vez e cria um índice
+# Carrega o XML de CPE apenas uma vez e cria um índice otimizado
 # --------------------------------------------------
-_cpe_entries = []  # list of tuples (lowercase name, original name)
+_cpe_entries: list[tuple[str, str]] = []
+_cpe_lookup: dict[tuple[str, str, str], list[str]] = defaultdict(list)
 _cpe_loaded = False
 
-def _load_cpe_index():
-    """Parseia o XML de CPE apenas uma vez."""
+
+def _load_cpe_index() -> None:
+    """Parseia o XML de CPE apenas uma vez e popula índices."""
     global _cpe_loaded
     if _cpe_loaded:
         return
@@ -24,8 +27,16 @@ def _load_cpe_index():
     ns = {'cpe23': 'http://scap.nist.gov/schema/cpe-extension/2.3'}
     for entry in root.findall('.//cpe23:cpe23-item', ns):
         name = entry.get('name')
-        _cpe_entries.append((name.lower(), name))
+        if not name:
+            continue
+        lower = name.lower()
+        _cpe_entries.append((lower, name))
+        parts = name.split(':')
+        if len(parts) >= 6:
+            key = (parts[3].lower(), parts[4].lower(), parts[5].lower())
+            _cpe_lookup[key].append(name)
     _cpe_loaded = True
+
 
 # ==================================================
 # FUNÇÃO PRINCIPAL CHAMADA PELO RISK_MAPPER
@@ -44,11 +55,14 @@ async def buscar_cves_para_softwares(lista_softwares):
     _load_cpe_index()
 
     def _find_cpe(*tokens: str):
-        """Busca uma CPE contendo todos os tokens fornecidos."""
-        versao = tokens[-1]
-        nomes = tokens[:-1]
+        versao = tokens[-1].lower()
+        nomes = [t.lower() for t in tokens[:-1]]
+        if len(nomes) == 2:
+            resultado = _cpe_lookup.get((nomes[0], nomes[1], versao))
+            if resultado:
+                return resultado[0]
         for lower, full in _cpe_entries:
-            if all(n in lower for n in nomes) and versao in full:
+            if all(n in lower for n in nomes) and versao in lower:
                 return full
         return None
 
@@ -60,8 +74,7 @@ async def buscar_cves_para_softwares(lista_softwares):
             partes_nome = re.split('[-_]', nome)
             loop = asyncio.get_running_loop()
             if len(partes_nome) >= 2:
-                cpe = await loop.run_in_executor(None, _find_cpe,
-                                                  partes_nome[0], partes_nome[1], versao)
+                cpe = await loop.run_in_executor(None, _find_cpe, partes_nome[0], partes_nome[1], versao)
             else:
                 cpe = await loop.run_in_executor(None, _find_cpe, nome, versao)
             if cpe:
@@ -108,3 +121,4 @@ async def buscar_cves_para_softwares(lista_softwares):
         alertas_cves.extend(r)
 
     return alertas_cves
+

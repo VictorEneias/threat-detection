@@ -200,3 +200,4 @@ async def avaliar_riscos(portas_por_ip):
     alertas_portas, softwares = await avaliar_portas(portas_por_ip)
     alertas_softwares = await avaliar_softwares(softwares)
     return alertas_portas, alertas_softwares
+
