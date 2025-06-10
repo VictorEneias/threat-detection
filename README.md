@@ -1,115 +1,121 @@
 # Threat Detection
 
-This repository contains a FastAPI backend and a Next.js frontend used to scan
-infrastructure and map vulnerabilities. The application relies on MongoDB and
-external tools from ProjectDiscovery.
+Este projeto reúne um backend em **FastAPI** e um frontend em **Next.js** para realizar varreduras de infraestrutura e correlacionar vulnerabilidades encontradas.
 
-## Requirements
+Abaixo segue um guia comentado para preparar um ambiente Debian do zero e executar a aplicação.
 
-- Python 3.11 or newer
-- Node.js 18+
-- Go (to build ProjectDiscovery utilities)
-- MongoDB running locally
-- External tools available in `PATH`: `subfinder`, `dnsx`, `naabu`
-- The file `CPE/official-cpe-dictionary_v2.3.xml` placed under `CPE/`
+## Requisitos
 
-## Quick Installation
+- Debian atualizado
+- Python 3.11
+- Node.js 18
+- Go (para compilar utilitários do ProjectDiscovery)
+- MongoDB 7
+
+## Passo a passo para instalar em um Debian limpo
+
+### 1. Preparação inicial
 
 ```bash
-pip install -r requirements.txt
-cd frontend/threat-detection && npm install
+apt-get install sudo
+sudo apt-get update && sudo apt-get upgrade
 ```
 
-Ensure that `subfinder`, `dnsx`, `naabu` are available in your shell and that a
-MongoDB instance is running.
+### 2. Dependências de desenvolvimento
 
-## Full Setup on Debian
+Instale Python 3.11 e pacotes necessários para compilar bibliotecas:
 
-The steps below reproduce the development environment on a clean Debian
-installation.
+```bash
+sudo apt-get install python3.11 python3.11-venv
+sudo apt-get install build-essential
+sudo apt-get install libpcap-dev
+```
 
-1. Update the system:
-   ```bash
-   sudo apt-get update && sudo apt-get upgrade
-   ```
-2. Install Python 3.11+ (from Debian repositories or a source like deadsnakes):
-   ```bash
-   sudo apt-get install python3.11 python3.11-venv
-   ```
-3. Install Node.js 18+
-   ```bash
-   curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-   sudo apt-get install -y nodejs
-   ```
-4. Install Go (required for the external scanners)
-   ```bash
-   sudo apt-get install -y golang
-   export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
-   ```
-5. Install external tools from ProjectDiscovery
-   ```bash
-   go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
-   go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest
-   go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
-   ```
-6. Install MongoDB and enable the service
-   ```bash
-   wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
-   echo "deb [ arch=amd64 ] https://repo.mongodb.org/apt/debian bullseye/mongodb-org/6.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
-   sudo apt-get update
-   sudo apt-get install -y mongodb-org
-   sudo systemctl enable --now mongod
-   ```
-7. Populate CVE data using cve-search
-   ```bash
-   git clone https://github.com/cve-search/cve-search.git cve-db/cve-search
-   cd cve-db/cve-search
-   pip install -r requirements.txt
-   python3 ./sbin/db_mgmt.py -p
-   python3 ./sbin/create_indexes.py
-   ```
-8. Download the CPE dictionary
-   ```bash
-   mkdir -p CPE
-   wget https://nvd.nist.gov/feeds/xml/cpe/dictionary/official-cpe-dictionary_v2.3.xml.gz
-   gunzip official-cpe-dictionary_v2.3.xml.gz
-   mv official-cpe-dictionary_v2.3.xml CPE/
-   ```
-9. Install Python dependencies for this project
-   ```bash
-   cd /path/to/threat-detection
-   pip install -r requirements.txt
-   ```
-10. Install frontend dependencies
-   ```bash
-   cd frontend/threat-detection
-   npm install
-   # optionally build: npm run build
-   ```
-11. Verify that the tools `subfinder`, `dnsx`, and `naabu` are in `PATH` and that
-    MongoDB is running (`sudo systemctl status mongod`).
+### 3. Instalação do Node.js 18
 
-## Running
+```bash
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
 
-Start the backend:
+### 4. Instalação do Go
+
+```bash
+cd /tmp
+wget https://go.dev/dl/go1.24.4.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.24.4.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+```
+
+### 5. Utilitários do ProjectDiscovery
+
+```bash
+go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+go install github.com/projectdiscovery/dnsx/cmd/dnsx@latest
+go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest
+```
+
+### 6. Instalação do MongoDB 7
+
+```bash
+curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
+echo "deb [ arch=amd64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+sudo apt update
+sudo apt install -y mongodb-org
+```
+
+### 7. Clonar e configurar o projeto
+
+```bash
+git clone https://github.com/VictorEneias/threat-detection.git
+cd threat-detection
+rm -rf venv
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 8. Popular base CVE com cve-search
+
+```bash
+git clone https://github.com/cve-search/cve-search.git cve-db/cve-search
+cd cve-db/cve-search
+pip install -r requirements.txt
+./sbin/db_updater.py -f -c
+cd ../..
+```
+
+### 9. Baixar o dicionário CPE
+
+```bash
+mkdir -p CPE
+cd CPE
+wget https://nvd.nist.gov/feeds/xml/cpe/dictionary/official-cpe-dictionary_v2.3.xml.gz
+gunzip official-cpe-dictionary_v2.3.xml.gz
+cd ..
+```
+
+### 10. Instalar dependências do frontend
+
+```bash
+cd frontend/threat-detection
+npm install
+```
+
+## Como executar
+
+Em um terminal, inicie o backend:
+
 ```bash
 uvicorn api:app --reload
 ```
 
-In another terminal, run the frontend from `frontend/threat-detection`:
+Em outro terminal, do diretório `frontend/threat-detection`, inicie o frontend:
+
 ```bash
 npm run dev
+# ou
+npm run dev -- -H 0.0.0.0 -p 3000
 ```
 
-With the backend running you can POST an email to `/api/port-analysis` and later
-fetch `/api/software-analysis/{job_id}` to obtain vulnerability data.
-
-## Docker
-
-You can build an image containing the backend:
-```bash
-docker build -t threat-detection .
-docker run -p 8000:8000 threat-detection
-```
-Be sure to provide the external tools and CPE XML to the container or mount them
-via a volume.
+Com ambos os serviços rodando, a aplicação estará acessível para testes e uso.
