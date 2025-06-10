@@ -127,21 +127,7 @@ Algumas configurações podem ser ajustadas antes de iniciar o backend:
 - `FRONTEND_URL`: origem permitida pelo CORS (padrão: `http://localhost:3000`)
 - `AUTH_ENABLED`: defina `0` para desativar a autenticação HTTP Basic
 - `API_USERNAME` e `API_PASSWORD`: credenciais usadas quando a autenticação está habilitada (padrão: `admin`/`password`)
-- `SSL_CERTFILE` e `SSL_KEYFILE`: caminhos para os arquivos de certificado e chave privados que habilitam HTTPS quando presentes.
+- `NEXT_PUBLIC_API_BASE`: URL do backend utilizada pelo frontend (padrão: `http://localhost:8000`)
 
-### Gerar certificados autoassinados
+O servidor de desenvolvimento do Next.js roda apenas em HTTP. Caso deseje disponibilizar o frontend em HTTPS, utilize um proxy reverso (por exemplo, nginx) para fornecer o certificado TLS.
 
-Para testes locais você pode criar um par de chaves TLS executando:
-
-```bash
-openssl req -x509 -newkey rsa:4096 -nodes -keyout server.key -out server.crt -days 365
-```
-
-Defina as variáveis de ambiente abaixo apontando para os arquivos gerados antes de iniciar o backend ou ao executar o contêiner Docker:
-
-```bash
-export SSL_KEYFILE=$(pwd)/server.key
-export SSL_CERTFILE=$(pwd)/server.crt
-```
-
-Com elas definidas, o Uvicorn servirá a API via HTTPS.

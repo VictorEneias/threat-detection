@@ -10,7 +10,11 @@ from intelligence.scoring import calcular_score_portas, calcular_score_softwares
 import uuid
 
 
-def extrair_dominio(email):
+def extrair_dominio(email: str) -> str | None:
+    """Extrai o domínio de um endereço de e-mail.
+
+    Retorna ``None`` se o formato estiver incorreto.
+    """
     if '@' not in email:
         return None
     dominio_completo = email.split('@')[1]
@@ -20,13 +24,15 @@ def extrair_dominio(email):
     return f"{partes.domain}.{partes.suffix}"
 
 
-def salvar_ips(ip_list, path):
+def salvar_ips(ip_list: list[str], path: str) -> None:
+    """Salva uma lista de IPs em ``path``."""
     with open(path, "w") as f:
         for ip in ip_list:
             f.write(ip + "\n")
 
 
-def limpar_pasta_data():
+def limpar_pasta_data() -> None:
+    """Remove arquivos temporários gerados em ``data/``."""
     pasta = "data"
     for arquivo in os.listdir(pasta):
         caminho = os.path.join(pasta, arquivo)
