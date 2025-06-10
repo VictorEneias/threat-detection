@@ -122,12 +122,11 @@ Com ambos os serviços rodando, a aplicação estará acessível para testes e u
 
 ### Variáveis de ambiente
 
-Algumas configurações podem ser ajustadas antes de iniciar o backend:
+Algumas configurações podem ser ajustadas antes de iniciar o backend e o frontend:
 
 - `FRONTEND_URL`: origem permitida pelo CORS (padrão: `http://localhost:3000`)
-- `AUTH_ENABLED`: defina `0` para desativar a autenticação HTTP Basic
-- `API_USERNAME` e `API_PASSWORD`: credenciais usadas quando a autenticação está habilitada (padrão: `admin`/`password`)
 - `NEXT_PUBLIC_API_BASE`: URL do backend utilizada pelo frontend (padrão: `http://localhost:8000`)
+- `NEXT_PUBLIC_APP_PASSWORD`: senha exigida na tela inicial do frontend (padrão: `senha`)
 
 O servidor de desenvolvimento do Next.js roda apenas em HTTP. Caso deseje disponibilizar o frontend em HTTPS, utilize um proxy reverso (por exemplo, nginx) para fornecer o certificado TLS.
 
