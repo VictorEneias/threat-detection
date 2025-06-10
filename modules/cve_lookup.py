@@ -6,7 +6,7 @@ import asyncio
 from collections import defaultdict
 
 CPE_XML_PATH = os.path.join(os.path.dirname(__file__), '../CPE/official-cpe-dictionary_v2.3.xml')
-client = AsyncIOMotorClient("mongodb://localhost:27017")
+client = AsyncIOMotorClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
 db = client.cvedb
 
 # --------------------------------------------------
