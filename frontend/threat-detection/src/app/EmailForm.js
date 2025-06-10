@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
 
@@ -15,6 +15,7 @@ export default function EmailForm() {
   const [showPort, setShowPort] = useState(false);
   const [showSoft, setShowSoft] = useState(false);
   const [showCards, setShowCards] = useState(false);
+  const jobRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,6 +27,7 @@ export default function EmailForm() {
     setPortScore(0);
     setSoftScore(0);
     setFinalScore(null);
+    jobRef.current = null;
 
     try {
       const res = await fetch(`${API_BASE}/api/port-analysis`, {
@@ -46,6 +48,7 @@ export default function EmailForm() {
       setPortAlerts(data.alertas || []);
       setPortScore(data.port_score || 0);
       setLoadingPort(false);
+      jobRef.current = data.job_id;
       pollSoftware(data.job_id);
     } catch (err) {
       alert('Erro ao conectar ao backend');
@@ -55,21 +58,34 @@ export default function EmailForm() {
   };
 
   const pollSoftware = async (id) => {
-    if (!id) return;
+    if (!id || jobRef.current !== id) return;
     try {
-        const res = await fetch(`${API_BASE}/api/software-analysis/${id}`);
+      const res = await fetch(`${API_BASE}/api/software-analysis/${id}`);
       const data = await res.json();
       if (data.alertas) {
         setSoftAlerts(data.alertas);
         setSoftScore(data.software_score || 0);
         setFinalScore(data.final_score ?? null);
         setLoadingSoft(false);
+        jobRef.current = null;
       } else {
         setTimeout(() => pollSoftware(id), 2000);
       }
     } catch (e) {
       setTimeout(() => pollSoftware(id), 2000);
     }
+  };
+
+  const cancelJob = async () => {
+    const id = jobRef.current;
+    if (!id) return;
+    try {
+      await fetch(`${API_BASE}/api/cancel/${id}`, { method: 'POST' });
+    } catch (e) {
+      // ignore errors
+    }
+    jobRef.current = null;
+    setLoadingSoft(false);
   };
 
   return (
@@ -119,7 +135,16 @@ export default function EmailForm() {
           <div className="bg-[#ec008c] text-black p-4 rounded shadow">
             <h2 className="font-semibold">Software Analysis</h2>
             {loadingSoft ? (
-              <p className="animate-pulse">Calculando risco...</p>
+              <>
+                <p className="animate-pulse">Calculando risco...</p>
+                <button
+                  type="button"
+                  className="underline text-sm mt-2"
+                  onClick={cancelJob}
+                >
+                  Cancelar
+                </button>
+              </>
             ) : (
               <>
                 <p className="mt-2">Score: {softScore}</p>

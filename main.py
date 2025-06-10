@@ -38,6 +38,17 @@ def limpar_pasta_data():
 jobs = {}
 
 
+def cancelar_job(job_id: str) -> bool:
+    """Cancela tarefa em andamento e remove metadados do job."""
+    job = jobs.pop(job_id, None)
+    if not job:
+        return False
+    task = job.get("task")
+    if task:
+        task.cancel()
+    return True
+
+
 async def executar_analise(email):
     """Executa a enumeração e análise, retornando apenas alertas de portas.
     O processamento de softwares continua em background e pode ser
@@ -92,7 +103,8 @@ async def executar_analise(email):
         "dominio": dominio,
         "port_score": port_score,
     }
-    asyncio.create_task(processar_softwares())
+    task = asyncio.create_task(processar_softwares())
+    jobs[job_id]["task"] = task
 
     return {
         "job_id": job_id,

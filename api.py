@@ -3,7 +3,7 @@ import secrets
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
-from main import executar_analise, consultar_software_alertas
+from main import executar_analise, consultar_software_alertas, cancelar_job
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -50,4 +50,13 @@ async def resultado(
     job_id: str, credentials: HTTPBasicCredentials = Depends(verify)
 ):
     return await consultar_software_alertas(job_id)
+
+
+@app.post("/api/cancel/{job_id}")
+async def cancelar(
+    job_id: str, credentials: HTTPBasicCredentials = Depends(verify)
+):
+    if cancelar_job(job_id):
+        return {"status": "cancelado"}
+    raise HTTPException(status_code=404, detail="Job n\u00e3o encontrado")
 
