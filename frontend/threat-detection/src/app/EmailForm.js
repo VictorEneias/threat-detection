@@ -16,9 +16,11 @@ export default function EmailForm() {
   const [showSoft, setShowSoft] = useState(false);
   const [showCards, setShowCards] = useState(false);
   const jobRef = useRef(null);
+  const abortRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    abortRef.current = new AbortController();
     setShowCards(true);
     setLoadingPort(true);
     setLoadingSoft(true);
@@ -35,7 +37,8 @@ export default function EmailForm() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email }),
+        signal: abortRef.current.signal
       });
 
       const data = await res.json();
@@ -51,7 +54,9 @@ export default function EmailForm() {
       jobRef.current = data.job_id;
       pollSoftware(data.job_id);
     } catch (err) {
-      alert('Erro ao conectar ao backend');
+      if (err.name !== 'AbortError') {
+        alert('Erro ao conectar ao backend');
+      }
       setLoadingPort(false);
       setLoadingSoft(false);
     }
@@ -78,14 +83,26 @@ export default function EmailForm() {
 
   const cancelJob = async () => {
     const id = jobRef.current;
-    if (!id) return;
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
     try {
-      await fetch(`${API_BASE}/api/cancel/${id}`, { method: 'POST' });
+      await fetch(`${API_BASE}/api/cancel-current`, { method: 'POST' });
     } catch (e) {
       // ignore errors
     }
+    if (id) {
+      try {
+        await fetch(`${API_BASE}/api/cancel/${id}`, { method: 'POST' });
+      } catch (e) {
+        // ignore errors
+      }
+    }
     jobRef.current = null;
+    setLoadingPort(false);
     setLoadingSoft(false);
+    setShowCards(false);
   };
 
   return (
@@ -106,6 +123,15 @@ export default function EmailForm() {
         >
           {loadingPort ? 'Analisando...' : 'Analisar'}
         </button>
+        {(loadingPort || loadingSoft) && (
+          <button
+            type="button"
+            className="bg-black text-white px-4 py-2 rounded"
+            onClick={cancelJob}
+          >
+            Cancelar
+          </button>
+        )}
       </form>
       {showCards && (
         <div className="mt-6 w-full max-w-2xl space-y-4">
@@ -135,16 +161,7 @@ export default function EmailForm() {
           <div className="bg-[#ec008c] text-black p-4 rounded shadow">
             <h2 className="font-semibold">Software Analysis</h2>
             {loadingSoft ? (
-              <>
-                <p className="animate-pulse">Calculando risco...</p>
-                <button
-                  type="button"
-                  className="underline text-sm mt-2"
-                  onClick={cancelJob}
-                >
-                  Cancelar
-                </button>
-              </>
+              <p className="animate-pulse">Calculando risco...</p>
             ) : (
               <>
                 <p className="mt-2">Score: {softScore}</p>

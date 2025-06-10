@@ -9,6 +9,10 @@ async def _run(cmd: list[str], timeout: int | None = None):
         proc.kill()
         await proc.communicate()
         raise subprocess.TimeoutExpired(cmd, timeout)
+    except asyncio.CancelledError:
+        proc.kill()
+        await proc.communicate()
+        raise
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, cmd)
 

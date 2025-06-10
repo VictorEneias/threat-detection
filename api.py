@@ -1,7 +1,12 @@
 import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from main import executar_analise, consultar_software_alertas, cancelar_job
+from main import (
+    executar_analise,
+    consultar_software_alertas,
+    cancelar_job,
+    cancelar_analise_atual,
+)
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -36,4 +41,11 @@ async def cancelar(job_id: str):
     if cancelar_job(job_id):
         return {"status": "cancelado"}
     raise HTTPException(status_code=404, detail="Job n\u00e3o encontrado")
+
+
+@app.post("/api/cancel-current")
+async def cancelar_atual():
+    if cancelar_analise_atual():
+        return {"status": "cancelado"}
+    return {"status": "nenhum"}
 
