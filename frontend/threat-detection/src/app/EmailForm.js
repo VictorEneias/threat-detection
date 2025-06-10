@@ -1,6 +1,8 @@
 'use client';
 import { useState } from 'react';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+
 export default function EmailForm() {
   const [email, setEmail] = useState('');
   const [loadingPort, setLoadingPort] = useState(false);
@@ -26,7 +28,7 @@ export default function EmailForm() {
     setFinalScore(null);
 
     try {
-      const res = await fetch('http://localhost:8000/api/port-analysis', {
+      const res = await fetch(`${API_BASE}/api/port-analysis`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -55,7 +57,7 @@ export default function EmailForm() {
   const pollSoftware = async (id) => {
     if (!id) return;
     try {
-      const res = await fetch(`http://localhost:8000/api/software-analysis/${id}`);
+        const res = await fetch(`${API_BASE}/api/software-analysis/${id}`);
       const data = await res.json();
       if (data.alertas) {
         setSoftAlerts(data.alertas);
