@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-ALLOWED_ORIGIN = os.getenv("FRONTEND_URL", "http://45.136.19.219:3000")
+ALLOWED_ORIGIN = os.getenv("FRONTEND_URL", "https://vulndetect.com.br")
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,8 +20,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
 
 class AnaliseRequest(BaseModel):
     email: str
