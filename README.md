@@ -108,6 +108,8 @@ Em um terminal, inicie o backend:
 
 ```bash
 uvicorn api:app --reload
+# ou
+uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 
 Em outro terminal, do diretório `frontend/threat-detection`, inicie o frontend:
