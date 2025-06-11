@@ -42,6 +42,8 @@ def limpar_pasta_data() -> None:
 
 
 jobs = {}
+current_port_task = None
+current_job_id = None
 
 
 def cancelar_job(job_id: str) -> bool:
@@ -55,10 +57,28 @@ def cancelar_job(job_id: str) -> bool:
     return True
 
 
+def cancelar_analise_atual() -> bool:
+    """Interrompe a análise em andamento, se existir."""
+    global current_port_task, current_job_id
+    cancelled = False
+    if current_port_task and not current_port_task.done():
+        current_port_task.cancel()
+        cancelled = True
+    if current_job_id:
+        cancelar_job(current_job_id)
+        current_job_id = None
+        cancelled = True
+    return cancelled
+
+
 async def executar_analise(email):
     """Executa a enumeração e análise, retornando apenas alertas de portas.
     O processamento de softwares continua em background e pode ser
     consultado depois via job_id."""
+
+    global current_port_task, current_job_id
+    current_port_task = asyncio.current_task()
+    current_job_id = None
 
     os.makedirs("data", exist_ok=True)
     dominio = extrair_dominio(email)
@@ -73,55 +93,65 @@ async def executar_analise(email):
     iplist_path = os.path.join("data", f"{dominio}_iplist.txt")
     naabu_path = os.path.join("data", f"{dominio}_naabu.txt")
 
-    await run_subfinder(dominio, subs_path, resolved_path)
-    ips = await asyncio.to_thread(parse_dnsx, resolved_path)
+    try:
+        await run_subfinder(dominio, subs_path, resolved_path)
+        ips = await asyncio.to_thread(parse_dnsx, resolved_path)
 
-    if not ips:
-        return {"erro": "Nenhum IP encontrado."}
+        if not ips:
+            return {"erro": "Nenhum IP encontrado."}
 
-    await asyncio.to_thread(salvar_ips, ips, iplist_path)
-    await run_naabu(iplist_path, naabu_path)
-    portas_abertas = await asyncio.to_thread(parse_naabu, naabu_path)
+        await asyncio.to_thread(salvar_ips, ips, iplist_path)
+        await run_naabu(iplist_path, naabu_path)
+        portas_abertas = await asyncio.to_thread(parse_naabu, naabu_path)
 
-    alertas_portas, softwares = await avaliar_portas(portas_abertas)
-    port_score = calcular_score_portas(alertas_portas, len(ips))
+        alertas_portas, softwares = await avaliar_portas(portas_abertas)
+        port_score = calcular_score_portas(alertas_portas, len(ips))
 
-    # disparar software analysis em background
-    async def processar_softwares():
-        alertas_softwares = await avaliar_softwares(softwares)
-        software_score = calcular_score_softwares(alertas_softwares)
-        jobs[job_id]["software_alertas"] = [
-            {
-                "ip": a["ip"],
-                "porta": a["porta"],
-                "software": a["software"],
-                "cve_id": a["cve_id"],
-                "cvss": a["cvss"],
-            }
-            for a in alertas_softwares
-        ]
-        jobs[job_id]["software_score"] = software_score
-        jobs[job_id]["final_score"] = round((port_score + software_score) / 2, 2)
+        # disparar software analysis em background
+        async def processar_softwares():
+            alertas_softwares = await avaliar_softwares(softwares)
+            software_score = calcular_score_softwares(alertas_softwares)
+            jobs[job_id]["software_alertas"] = [
+                {
+                    "ip": a["ip"],
+                    "porta": a["porta"],
+                    "software": a["software"],
+                    "cve_id": a["cve_id"],
+                    "cvss": a["cvss"],
+                }
+                for a in alertas_softwares
+            ]
+            jobs[job_id]["software_score"] = software_score
+            jobs[job_id]["final_score"] = round((port_score + software_score) / 2, 2)
+            limpar_pasta_data()
+
+        jobs[job_id] = {
+            "software_alertas": None,
+            "dominio": dominio,
+            "port_score": port_score,
+        }
+        task = asyncio.create_task(processar_softwares())
+        jobs[job_id]["task"] = task
+        current_job_id = job_id
+
+        return {
+            "job_id": job_id,
+            "dominio": dominio,
+            "ips_com_portas": portas_abertas,
+            "alertas": [
+                {"ip": ip, "porta": porta, "mensagem": msg}
+                for ip, porta, msg in alertas_portas
+            ],
+            "port_score": port_score,
+        }
+    except asyncio.CancelledError:
         limpar_pasta_data()
-
-    jobs[job_id] = {
-        "software_alertas": None,
-        "dominio": dominio,
-        "port_score": port_score,
-    }
-    task = asyncio.create_task(processar_softwares())
-    jobs[job_id]["task"] = task
-
-    return {
-        "job_id": job_id,
-        "dominio": dominio,
-        "ips_com_portas": portas_abertas,
-        "alertas": [
-            {"ip": ip, "porta": porta, "mensagem": msg}
-            for ip, porta, msg in alertas_portas
-        ],
-        "port_score": port_score,
-    }
+        if current_job_id:
+            cancelar_job(current_job_id)
+        raise
+    finally:
+        current_port_task = None
+        current_job_id = None
 
 
 async def consultar_software_alertas(job_id: str):
