@@ -55,7 +55,7 @@ async def obter_server_header(ip, protocolo):
 @medir_tempo_execucao_async
 async def verificar_http_sem_redirect(ip):
     try:
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, 80), timeout=30)
+        reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, 80), timeout=15)
         request = b"GET / HTTP/1.1\r\nHost: %b\r\nConnection: close\r\n\r\n" % ip.encode()
         writer.write(request)
         await writer.drain()
@@ -172,7 +172,7 @@ async def avaliar_portas(portas_por_ip):
 
     async def analisar_com_timeout(ip, portas):
         try:
-            return await asyncio.wait_for(analisar_ip(ip, portas), timeout=130)
+            return await asyncio.wait_for(analisar_ip(ip, portas), timeout=30)
         except asyncio.TimeoutError:
             print(f"[TIMEOUT] análise do IP {ip} excedeu 130s e foi abortada.")
             return []
