@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://45.136.19.219:8000';
 
 export default function EmailForm() {
   const [email, setEmail] = useState('');
@@ -107,7 +107,7 @@ export default function EmailForm() {
 
   return (
     <div className="w-full flex flex-col items-center">
-      <form onSubmit={handleSubmit} className="bg-[#ec008c] p-4 rounded-lg flex gap-2 w-full max-w-md">
+      <form onSubmit={handleSubmit} className="bg-[#ec008c] p-4 rounded-lg flex gap-2 w-full max-w-xl">
         <input
           type="email"
           placeholder="usuario@empresa.com"
@@ -134,7 +134,7 @@ export default function EmailForm() {
         )}
       </form>
       {showCards && (
-        <div className="mt-6 w-full max-w-2xl space-y-4">
+        <div className="mt-6 w-full max-w-3xl space-y-4">
           <div className="bg-[#ec008c] text-black p-4 rounded shadow">
             <h2 className="font-semibold">Port Analysis</h2>
             {loadingPort ? (
@@ -157,7 +157,6 @@ export default function EmailForm() {
               </>
             )}
           </div>
-
           <div className="bg-[#ec008c] text-black p-4 rounded shadow">
             <h2 className="font-semibold">Software Analysis</h2>
             {loadingSoft ? (
@@ -180,7 +179,6 @@ export default function EmailForm() {
               </>
             )}
           </div>
-
           {finalScore !== null && (
             <div className="bg-[#ec008c] text-black p-4 rounded shadow">
               <h2 className="font-semibold">Score Final</h2>
