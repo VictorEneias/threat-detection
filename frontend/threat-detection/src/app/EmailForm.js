@@ -87,6 +87,11 @@ export default function EmailForm() {
       abortRef.current.abort();
       abortRef.current = null;
     }
+    try {
+      await fetch(`${API_BASE}/api/cancel-current`, { method: 'POST' });
+    } catch (e) {
+      // ignore errors
+    }
     if (id) {
       try {
         await fetch(`${API_BASE}/api/cancel/${id}`, { method: 'POST' });
@@ -118,22 +123,22 @@ export default function EmailForm() {
         >
           {loadingPort ? 'Analisando...' : 'Analisar'}
         </button>
+        {(loadingPort || loadingSoft) && (
+          <button
+            type="button"
+            className="bg-black text-white px-4 py-2 rounded"
+            onClick={cancelJob}
+          >
+            Cancelar
+          </button>
+        )}
       </form>
       {showCards && (
         <div className="mt-6 w-full max-w-2xl space-y-4">
           <div className="bg-[#ec008c] text-black p-4 rounded shadow">
             <h2 className="font-semibold">Port Analysis</h2>
             {loadingPort ? (
-              <>
-                <p className="animate-pulse">Calculando risco...</p>
-                <button
-                  type="button"
-                  className="underline text-sm mt-2"
-                  onClick={cancelJob}
-                >
-                  Cancelar
-                </button>
-              </>
+              <p className="animate-pulse">Calculando risco...</p>
             ) : (
               <>
                 <p className="mt-2">Score: {portScore}</p>
@@ -156,16 +161,7 @@ export default function EmailForm() {
           <div className="bg-[#ec008c] text-black p-4 rounded shadow">
             <h2 className="font-semibold">Software Analysis</h2>
             {loadingSoft ? (
-              <>
-                <p className="animate-pulse">Calculando risco...</p>
-                <button
-                  type="button"
-                  className="underline text-sm mt-2"
-                  onClick={cancelJob}
-                >
-                  Cancelar
-                </button>
-              </>
+              <p className="animate-pulse">Calculando risco...</p>
             ) : (
               <>
                 <p className="mt-2">Score: {softScore}</p>
