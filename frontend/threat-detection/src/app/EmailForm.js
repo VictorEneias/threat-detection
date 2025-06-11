@@ -1,8 +1,6 @@
 'use client';
 import { useState, useRef } from 'react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://45.136.19.219:8000';
-
 export default function EmailForm() {
   const [email, setEmail] = useState('');
   const [loadingPort, setLoadingPort] = useState(false);
@@ -32,7 +30,7 @@ export default function EmailForm() {
     jobRef.current = null;
 
     try {
-      const res = await fetch(`${API_BASE}/api/port-analysis`, {
+      const res = await fetch('/api/port-analysis', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -65,7 +63,7 @@ export default function EmailForm() {
   const pollSoftware = async (id) => {
     if (!id || jobRef.current !== id) return;
     try {
-      const res = await fetch(`${API_BASE}/api/software-analysis/${id}`);
+      const res = await fetch(`/api/software-analysis/${id}`);
       const data = await res.json();
       if (data.alertas) {
         setSoftAlerts(data.alertas);
@@ -88,13 +86,13 @@ export default function EmailForm() {
       abortRef.current = null;
     }
     try {
-      await fetch(`${API_BASE}/api/cancel-current`, { method: 'POST' });
+      await fetch('/api/cancel-current', { method: 'POST' });
     } catch (e) {
       // ignore errors
     }
     if (id) {
       try {
-        await fetch(`${API_BASE}/api/cancel/${id}`, { method: 'POST' });
+        await fetch(`/api/cancel/${id}`, { method: 'POST' });
       } catch (e) {
         // ignore errors
       }
@@ -104,6 +102,7 @@ export default function EmailForm() {
     setLoadingSoft(false);
     setShowCards(false);
   };
+
 
   return (
     <div className="w-full flex flex-col items-center">
