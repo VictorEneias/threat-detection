@@ -5,6 +5,9 @@ import os
 import asyncio
 from collections import defaultdict
 
+SOFTWARE_RE = re.compile(r"(\w[\w\-\.]*?/\d+\.\d+(?:\.\d+)?)")
+NAME_SPLIT_RE = re.compile('[-_]')
+
 CPE_XML_PATH = os.path.join(os.path.dirname(__file__), '../CPE/official-cpe-dictionary_v2.3.xml')
 client = AsyncIOMotorClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
 db = client.cvedb
@@ -46,7 +49,7 @@ async def buscar_cves_para_softwares(lista_softwares):
     softwares_validos = []
 
     for ip, porta, software_raw in lista_softwares:
-        matches = re.findall(r'(\w[\w\-\.]*?/\d+\.\d+(?:\.\d+)?)', software_raw)
+        matches = SOFTWARE_RE.findall(software_raw)
         for m in matches:
             print(f"[EXTRAÇÃO] {ip}:{porta} {m}")
             softwares_validos.append((ip, porta, m))
@@ -71,7 +74,7 @@ async def buscar_cves_para_softwares(lista_softwares):
             nome, versao = item.split('/')
             nome = nome.lower()
             versao = versao.strip()
-            partes_nome = re.split('[-_]', nome)
+            partes_nome = NAME_SPLIT_RE.split(nome)
             loop = asyncio.get_running_loop()
             if len(partes_nome) >= 2:
                 cpe = await loop.run_in_executor(None, _find_cpe, partes_nome[0], partes_nome[1], versao)
