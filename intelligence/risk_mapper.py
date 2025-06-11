@@ -1,8 +1,15 @@
 import asyncio
 import re
-import httpx
 import time
+import httpx
 from modules.cve_lookup import buscar_cves_para_softwares
+
+HTTP_CLIENT = httpx.AsyncClient(timeout=10, verify=False)
+CONNECTION_SEM = asyncio.Semaphore(50)
+IP_SEM = asyncio.Semaphore(20)
+
+ESMTP_RE = re.compile(r"ESMTP\s+([\w\-\./]+)", re.IGNORECASE)
+MYSQL_RE = re.compile(r"([Mm]\s*\d+\.\d+(?:\.\d+)?(?:-[^\s]+)?)")
 
 PORTAS_CRITICAS = [21, 22, 23, 80, 443, 3389, 445, 3306, 5432, 1433, 25, 465, 587]
 softwares_detectados = []
@@ -21,21 +28,22 @@ def parse_banner(ip, porta, banner):
     banner = banner.strip()
     if not banner:
         return None
+    lower = banner.lower()
     if porta == 21:
-        if "pure-ftpd" in banner.lower():
+        if "pure-ftpd" in lower:
             return "Pure-FTPd"
-        if "proftpd" in banner.lower():
+        if "proftpd" in lower:
             return "ProFTPD"
-        if "vsftpd" in banner.lower():
+        if "vsftpd" in lower:
             return "vsFTPd"
     if porta == 22 and banner.startswith("SSH-"):
         return banner
     if porta in [25, 465, 587]:
-        match = re.search(r"ESMTP\s+([\w\-\./]+)", banner, re.IGNORECASE)
+        match = ESMTP_RE.search(banner)
         if match:
             return f"ESMTP {match.group(1)}"
     if porta == 3306 and "mysql_native_password" in banner:
-        match = re.search(r"([Mm]\s*\d+\.\d+(\.\d+)?(?:-[^\s]+)?)", banner)
+        match = MYSQL_RE.search(banner)
         return match.group(1) if match else banner[:60]
     return banner[:60]
 
@@ -43,25 +51,26 @@ def parse_banner(ip, porta, banner):
 async def obter_server_header(ip, protocolo):
     try:
         url = f"{protocolo}://{ip}"
-        async with httpx.AsyncClient(timeout=10, verify=False) as client:
-            response = await client.head(url, follow_redirects=True)
-            server = response.headers.get("Server", "").strip()
-            if server:
-                softwares_detectados.append((ip, 443 if protocolo == "https" else 80, server))
-            return server if server else None
+        async with CONNECTION_SEM:
+            response = await HTTP_CLIENT.head(url, follow_redirects=True)
+        server = response.headers.get("Server", "").strip()
+        if server:
+            softwares_detectados.append((ip, 443 if protocolo == "https" else 80, server))
+        return server if server else None
     except Exception:
         return None
 
 @medir_tempo_execucao_async
 async def verificar_http_sem_redirect(ip):
     try:
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, 80), timeout=15)
-        request = b"GET / HTTP/1.1\r\nHost: %b\r\nConnection: close\r\n\r\n" % ip.encode()
-        writer.write(request)
-        await writer.drain()
-        data = await reader.read(1024)
-        writer.close()
-        await writer.wait_closed()
+        async with CONNECTION_SEM:
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, 80), timeout=15)
+            request = b"GET / HTTP/1.1\r\nHost: %b\r\nConnection: close\r\n\r\n" % ip.encode()
+            writer.write(request)
+            await writer.drain()
+            data = await reader.read(1024)
+            writer.close()
+            await writer.wait_closed()
         return b"HTTP/1.1 200 OK" in data
     except Exception:
         return False
@@ -69,11 +78,12 @@ async def verificar_http_sem_redirect(ip):
 @medir_tempo_execucao_async
 async def obter_banner(ip, porta, palavras_chave):
     try:
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, porta), timeout=30)
-        banner = await reader.read(1024)
-        banner = banner.decode(errors="ignore").strip()
-        writer.close()
-        await writer.wait_closed()
+        async with CONNECTION_SEM:
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, porta), timeout=30)
+            banner = await reader.read(1024)
+            banner = banner.decode(errors="ignore").strip()
+            writer.close()
+            await writer.wait_closed()
         for palavra in palavras_chave:
             if palavra.lower() in banner.lower():
                 parsed = parse_banner(ip, porta, banner)
@@ -87,11 +97,12 @@ async def obter_banner(ip, porta, palavras_chave):
 @medir_tempo_execucao_async
 async def verificar_smtp(ip, porta):
     try:
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, porta), timeout=10)
-        banner = await asyncio.wait_for(reader.read(1024), timeout=5)
-        banner = banner.decode(errors="ignore").strip()
-        writer.close()
-        await writer.wait_closed()
+        async with CONNECTION_SEM:
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(ip, porta), timeout=10)
+            banner = await asyncio.wait_for(reader.read(1024), timeout=5)
+            banner = banner.decode(errors="ignore").strip()
+            writer.close()
+            await writer.wait_closed()
         if "220" in banner:
             software = parse_banner(ip, porta, banner)
             if software:
@@ -172,7 +183,8 @@ async def avaliar_portas(portas_por_ip):
 
     async def analisar_com_timeout(ip, portas):
         try:
-            return await asyncio.wait_for(analisar_ip(ip, portas), timeout=30)
+            async with IP_SEM:
+                return await asyncio.wait_for(analisar_ip(ip, portas), timeout=30)
         except asyncio.TimeoutError:
             print(f"[TIMEOUT] análise do IP {ip} excedeu 130s e foi abortada.")
             return []
