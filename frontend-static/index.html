@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Threat Detection</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="login">
+    <form id="login-form">
+      <input type="password" id="password" placeholder="Senha" required>
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+  <div id="main" class="hidden">
+    <header>
+      <h1>ANÁLISE DE SEGURANÇA CORPORATIVA</h1>
+    </header>
+    <form id="email-form">
+      <input type="email" id="email" placeholder="usuario@empresa.com" required>
+      <button type="submit">Analisar</button>
+      <button type="button" id="cancel" class="hidden">Cancelar</button>
+    </form>
+    <div id="results"></div>
+  </div>
+  <script src="config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

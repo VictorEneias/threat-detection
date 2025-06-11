@@ -1,6 +1,7 @@
 # Threat Detection
 
-Este projeto reúne um backend em **FastAPI** e um frontend em **Next.js** para realizar varreduras de infraestrutura e correlacionar vulnerabilidades encontradas.
+Este projeto reúne um backend em **FastAPI** e um frontend.\
+Há duas opções de interface web: uma versão estática pronta para ser servida por nginx ou apache e o frontend original em **Next.js** (útil para desenvolvimento).
 
 Abaixo segue um guia comentado para preparar um ambiente Debian do zero e executar a aplicação.
 
@@ -8,7 +9,8 @@ Abaixo segue um guia comentado para preparar um ambiente Debian do zero e execut
 
 - Debian atualizado
 - Python 3.11
-- Node.js 18
+- Node.js 18 *(apenas se desejar utilizar o frontend Next.js)*
+- Servidor web (nginx ou apache) para hospedar o frontend estático
 - Go (para compilar utilitários do ProjectDiscovery)
 - MongoDB 7
 
@@ -31,7 +33,9 @@ sudo apt-get install build-essential
 sudo apt-get install libpcap-dev
 ```
 
-### 3. Instalação do Node.js 18
+### 3. (Opcional) Instalação do Node.js 18
+
+Necessário apenas se desejar utilizar o frontend em Next.js.
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
@@ -95,12 +99,12 @@ gunzip official-cpe-dictionary_v2.3.xml.gz
 cd ..
 ```
 
-### 10. Instalar dependências do frontend
+### 10. Configurar o frontend estático
 
-```bash
-cd frontend/threat-detection
-npm install
-```
+Não há dependências a instalar. Copie o conteúdo da pasta `frontend-static`
+para o diretório servido pelo seu servidor web (por exemplo
+`/var/www/threat-detection`). O arquivo `config.js` permite ajustar a URL do
+backend (`API_BASE`) e a senha da aplicação (`APP_PASSWORD`).
 
 ## Como executar
 
@@ -112,23 +116,20 @@ uvicorn api:app --reload
 uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 
-Em outro terminal, do diretório `frontend/threat-detection`, inicie o frontend:
+Em outro terminal (ou serviço), sirva o conteúdo da pasta
+`frontend-static` em seu servidor web. Caso utilize nginx, a diretiva
+`root` deve apontar para esse diretório. Após iniciar o servidor,
+acesse a página `index.html` pelo navegador.
 
-```bash
-npm run dev
-# ou
-npm run dev -- -H 0.0.0.0 -p 3000
-```
-
-Com ambos os serviços rodando, a aplicação estará acessível para testes e uso.
+Com o backend e o servidor web ativos, a aplicação estará acessível para testes
+e uso.
 
 ### Variáveis de ambiente
 
 Algumas configurações podem ser ajustadas antes de iniciar o backend e o frontend:
 
-- `FRONTEND_URL`: origem permitida pelo CORS (padrão: `http://localhost:3000`)
-- `NEXT_PUBLIC_API_BASE`: URL do backend utilizada pelo frontend (padrão: `http://localhost:8000`)
-- `NEXT_PUBLIC_APP_PASSWORD`: senha exigida na tela inicial do frontend (padrão: `senha`)
+- `FRONTEND_URL`: origem permitida pelo CORS (padrão: `http://localhost`)
+- Edite `frontend-static/config.js` para definir `API_BASE` (URL do backend) e `APP_PASSWORD`.
 
-O servidor de desenvolvimento do Next.js roda apenas em HTTP. Caso deseje disponibilizar o frontend em HTTPS, utilize um proxy reverso (por exemplo, nginx) para fornecer o certificado TLS.
+Para disponibilizar o frontend em HTTPS, configure seu servidor web (nginx ou apache) com um certificado TLS válido, por exemplo utilizando o Let's Encrypt.
 

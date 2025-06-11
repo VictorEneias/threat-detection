@@ -1,0 +1,61 @@
+body {
+  background: #000;
+  color: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+}
+header {
+  background: #ec008c;
+  width: 100%;
+  text-align: center;
+  padding: 1rem 0;
+  font-weight: bold;
+}
+form {
+  display: flex;
+  gap: 0.5rem;
+}
+#login-form,
+#email-form {
+  background: #ec008c;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-top: 2rem;
+}
+input {
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  border: none;
+}
+button {
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+.hidden {
+  display: none;
+}
+#results {
+  width: 100%;
+  max-width: 800px;
+  margin-top: 2rem;
+}
+.result-card {
+  background: #ec008c;
+  color: #000;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+}
+.result-card ul {
+  margin-top: 0.5rem;
+  list-style: disc;
+  padding-left: 1.5rem;
+}
