@@ -10,9 +10,12 @@
     "export": "next export"
   },
   "dependencies": {
+    "lodash": "^4.17.21",
+    "next": "15.3.2",
+    "prop-types": "^15.8.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "next": "15.3.2"
+    "react-gauge-chart": "^0.5.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

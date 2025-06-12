@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef } from 'react';
+import ScoreGauge from './Gauge';
 
 export default function EmailForm() {
   const [email, setEmail] = useState('');
@@ -87,15 +88,11 @@ export default function EmailForm() {
     }
     try {
       await fetch('/api/cancel-current', { method: 'POST' });
-    } catch (e) {
-      // ignore errors
-    }
+    } catch (e) {}
     if (id) {
       try {
         await fetch(`/api/cancel/${id}`, { method: 'POST' });
-      } catch (e) {
-        // ignore errors
-      }
+      } catch (e) {}
     }
     jobRef.current = null;
     setLoadingPort(false);
@@ -103,10 +100,16 @@ export default function EmailForm() {
     setShowCards(false);
   };
 
-
   return (
     <div className="w-full flex flex-col items-center">
-      <form onSubmit={handleSubmit} className="bg-[#ec008c] p-4 rounded-lg flex gap-2 w-full max-w-xl">
+      {finalScore !== null && (
+        <div className="bg-[#ec008c] text-black p-4 rounded shadow w-full max-w-xl mb-4 text-center">
+          <h2 className="font-semibold text-lg">Score Final</h2>
+          <ScoreGauge value={finalScore} />
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="bg-[#ec008c] p-4 rounded-lg flex flex-col md:flex-row gap-2 w-full max-w-xl">
         <input
           type="email"
           placeholder="usuario@empresa.com"
@@ -115,33 +118,40 @@ export default function EmailForm() {
           className="flex-1 p-2 rounded text-black"
           required
         />
-        <button
-          type="submit"
-          className="bg-black text-white px-4 py-2 rounded"
-          disabled={loadingPort || loadingSoft}
-        >
-          {loadingPort ? 'Analisando...' : 'Analisar'}
-        </button>
-        {(loadingPort || loadingSoft) && (
+        <div className="flex flex-col md:flex-row gap-2">
           <button
-            type="button"
+            type="submit"
             className="bg-black text-white px-4 py-2 rounded"
-            onClick={cancelJob}
+            disabled={loadingPort || loadingSoft}
           >
-            Cancelar
+            {loadingPort ? 'Analisando...' : 'Analisar'}
           </button>
-        )}
+          {(loadingPort || loadingSoft) && (
+            <button
+              type="button"
+              className="bg-black text-white px-4 py-2 rounded"
+              onClick={cancelJob}
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
       </form>
+
       {showCards && (
-        <div className="mt-6 w-full max-w-3xl space-y-4">
-          <div className="bg-[#ec008c] text-black p-4 rounded shadow">
+        <div className="mt-6 w-full max-w-6xl flex flex-col md:flex-row md:flex-wrap md:justify-center gap-4">
+          <div className="bg-[#ec008c] text-black p-4 rounded shadow w-full md:w-[48%] lg:w-[30%]">
             <h2 className="font-semibold">Port Analysis</h2>
             {loadingPort ? (
               <p className="animate-pulse">Calculando risco...</p>
             ) : (
               <>
                 <p className="mt-2">Score: {portScore}</p>
-                <button type="button" className="underline text-sm" onClick={() => setShowPort(!showPort)}>
+                <button
+                  type="button"
+                  className="underline text-sm"
+                  onClick={() => setShowPort(!showPort)}
+                >
                   Ver Detalhes
                 </button>
                 {showPort && (
@@ -156,14 +166,19 @@ export default function EmailForm() {
               </>
             )}
           </div>
-          <div className="bg-[#ec008c] text-black p-4 rounded shadow">
+
+          <div className="bg-[#ec008c] text-black p-4 rounded shadow w-full md:w-[48%] lg:w-[30%]">
             <h2 className="font-semibold">Software Analysis</h2>
             {loadingSoft ? (
               <p className="animate-pulse">Calculando risco...</p>
             ) : (
               <>
                 <p className="mt-2">Score: {softScore}</p>
-                <button type="button" className="underline text-sm" onClick={() => setShowSoft(!showSoft)}>
+                <button
+                  type="button"
+                  className="underline text-sm"
+                  onClick={() => setShowSoft(!showSoft)}
+                >
                   Ver Detalhes
                 </button>
                 {showSoft && (
@@ -178,13 +193,8 @@ export default function EmailForm() {
               </>
             )}
           </div>
-          {finalScore !== null && (
-            <div className="bg-[#ec008c] text-black p-4 rounded shadow">
-              <h2 className="font-semibold">Score Final</h2>
-              <p className="mt-2 text-xl font-bold">{finalScore}</p>
-            </div>
-          )}
-          <div className="bg-[#ec008c] text-black p-4 rounded shadow">
+
+          <div className="bg-[#ec008c] text-black p-4 rounded shadow w-full md:w-[48%] lg:w-[30%]">
             <h2 className="font-semibold">Outros Módulos</h2>
             <p className="italic">Em breve...</p>
           </div>
