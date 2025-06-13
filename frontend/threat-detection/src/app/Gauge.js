@@ -16,7 +16,7 @@ export default function ScoreGauge({ value }) {
         nrOfLevels={20}
         arcWidth={0.3}
         percent={value}
-        textColor="#000"
+        textColor="#FFFFFF"
         colors={['#00FF00', '#FFBF00', '#FF0000']}
         formatTextValue={() => `${Math.round(value * 100)}%`}
       />
