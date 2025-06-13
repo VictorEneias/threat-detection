@@ -33,9 +33,7 @@ export default function EmailForm() {
     try {
       const res = await fetch('/api/port-analysis', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
         signal: abortRef.current.signal
       });
@@ -53,9 +51,7 @@ export default function EmailForm() {
       jobRef.current = data.job_id;
       pollSoftware(data.job_id);
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        alert('Erro ao conectar ao backend');
-      }
+      if (err.name !== 'AbortError') alert('Erro ao conectar ao backend');
       setLoadingPort(false);
       setLoadingSoft(false);
     }
@@ -101,27 +97,30 @@ export default function EmailForm() {
   };
 
   return (
-    <div className="w-full flex flex-col items-center">
+    <div className="w-full flex flex-col items-center gap-y-6 px-4">
       {finalScore !== null && (
-        <div className="bg-[#ec008c] text-black p-4 rounded shadow w-full max-w-xl mb-4 text-center">
-          <h2 className="font-semibold text-lg">Score Final</h2>
+        <div className="bg-[#1a1a1a] text-white p-6 rounded-2xl shadow-lg w-full max-w-xl text-center border-t-4 border-[#ec008c]">
+          <h2 className="text-lg font-bold mb-2 tracking-wide uppercase">Score Final</h2>
           <ScoreGauge value={finalScore} />
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-[#ec008c] p-4 rounded-lg flex flex-col md:flex-row gap-2 w-full max-w-xl">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-[#1a1a1a] p-6 rounded-2xl shadow-lg flex flex-col md:flex-row gap-4 w-full max-w-xl text-white border border-[#ec008c]"
+      >
         <input
           type="email"
           placeholder="usuario@empresa.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="flex-1 p-2 rounded text-black"
+          className="flex-1 p-3 rounded bg-white text-black outline-none"
           required
         />
         <div className="flex flex-col md:flex-row gap-2">
           <button
             type="submit"
-            className="bg-black text-white px-4 py-2 rounded"
+            className="bg-[#ec008c] hover:bg-pink-600 text-white px-4 py-2 rounded font-semibold"
             disabled={loadingPort || loadingSoft}
           >
             {loadingPort ? 'Analisando...' : 'Analisar'}
@@ -129,7 +128,7 @@ export default function EmailForm() {
           {(loadingPort || loadingSoft) && (
             <button
               type="button"
-              className="bg-black text-white px-4 py-2 rounded"
+              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded font-semibold"
               onClick={cancelJob}
             >
               Cancelar
@@ -139,23 +138,24 @@ export default function EmailForm() {
       </form>
 
       {showCards && (
-        <div className="mt-6 w-full max-w-6xl flex flex-col md:flex-row md:flex-wrap md:justify-center gap-4">
-          <div className="bg-[#ec008c] text-black p-4 rounded shadow w-full md:w-[48%] lg:w-[30%]">
-            <h2 className="font-semibold">Port Analysis</h2>
+        <div className="mt-6 w-full max-w-7xl flex flex-col md:flex-row md:flex-wrap md:justify-center gap-6">
+          {/* Port Analysis */}
+          <div className="bg-[#1a1a1a] text-white p-5 rounded-2xl shadow-lg w-full md:w-[48%] lg:w-[30%] border-l-4 border-[#ec008c]">
+            <h2 className="text-xl font-semibold mb-2">Port Analysis</h2>
             {loadingPort ? (
-              <p className="animate-pulse">Calculando risco...</p>
+              <p className="animate-pulse text-sm">Calculando risco...</p>
             ) : (
               <>
-                <p className="mt-2">Score: {portScore}</p>
+                <p className="text-base">Score: {portScore}</p>
                 <button
                   type="button"
-                  className="underline text-sm"
+                  className="underline text-sm mt-2"
                   onClick={() => setShowPort(!showPort)}
                 >
                   Ver Detalhes
                 </button>
                 {showPort && (
-                  <ul className="list-disc list-inside text-sm mt-2">
+                  <ul className="list-disc list-inside text-sm mt-2 space-y-1">
                     {portAlerts.map((a, i) => (
                       <li key={i}>
                         <strong>{a.ip}:{a.porta}</strong> → {a.mensagem}
@@ -167,22 +167,23 @@ export default function EmailForm() {
             )}
           </div>
 
-          <div className="bg-[#ec008c] text-black p-4 rounded shadow w-full md:w-[48%] lg:w-[30%]">
-            <h2 className="font-semibold">Software Analysis</h2>
+          {/* Software Analysis */}
+          <div className="bg-[#1a1a1a] text-white p-5 rounded-2xl shadow-lg w-full md:w-[48%] lg:w-[30%] border-l-4 border-[#ec008c]">
+            <h2 className="text-xl font-semibold mb-2">Software Analysis</h2>
             {loadingSoft ? (
-              <p className="animate-pulse">Calculando risco...</p>
+              <p className="animate-pulse text-sm">Calculando risco...</p>
             ) : (
               <>
-                <p className="mt-2">Score: {softScore}</p>
+                <p className="text-base">Score: {softScore}</p>
                 <button
                   type="button"
-                  className="underline text-sm"
+                  className="underline text-sm mt-2"
                   onClick={() => setShowSoft(!showSoft)}
                 >
                   Ver Detalhes
                 </button>
                 {showSoft && (
-                  <ul className="list-disc list-inside text-sm mt-2">
+                  <ul className="list-disc list-inside text-sm mt-2 space-y-1">
                     {softAlerts.map((a, i) => (
                       <li key={i}>
                         <strong>{a.ip}:{a.porta}</strong> → {a.software} vulnerável a {a.cve_id} (CVSS {a.cvss})
@@ -194,9 +195,10 @@ export default function EmailForm() {
             )}
           </div>
 
-          <div className="bg-[#ec008c] text-black p-4 rounded shadow w-full md:w-[48%] lg:w-[30%]">
-            <h2 className="font-semibold">Outros Módulos</h2>
-            <p className="italic">Em breve...</p>
+          {/* Placeholder para futuros módulos */}
+          <div className="bg-[#1a1a1a] text-white p-5 rounded-2xl shadow-lg w-full md:w-[48%] lg:w-[30%] border-l-4 border-[#ec008c]">
+            <h2 className="text-xl font-semibold mb-2">Outros Módulos</h2>
+            <p className="italic text-sm text-gray-400">Em breve...</p>
           </div>
         </div>
       )}
