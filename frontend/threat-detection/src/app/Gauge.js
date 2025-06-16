@@ -16,13 +16,18 @@ export default function ScoreGauge({ value }) {
         nrOfLevels={20}
         arcWidth={0.3}
         percent={value}
-        textColor="#FFFFFF"
         colors={['#00FF00', '#FFBF00', '#FF0000']}
         formatTextValue={() => `${Math.round(value * 100)}%`}
       />
-      <p className="mt-2 text-3xl font-bold">
+      <p className="mt-2 text-3xl font-bold text-white">
         {getInterpretation(value)}
       </p>
+
+      <style jsx>{`
+        #score-gauge text {
+          fill: white !important;
+        }
+      `}</style>
     </div>
   );
 }
