@@ -4,4 +4,5 @@ pydantic
 tldextract
 motor
 httpx
+fpdf2
 

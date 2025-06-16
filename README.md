@@ -122,6 +122,8 @@ npm run dev -- -H 0.0.0.0 -p 3000
 
 Com ambos os serviços rodando, a aplicação estará acessível para testes e uso.
 
+Relatórios em PDF são criados automaticamente ao término de cada análise e podem ser baixados na área `/admin` do frontend. Nessa área também ficam disponíveis os chamados enviados pelos usuários via formulário de contato.
+
 ### Variáveis de ambiente
 
 Algumas configurações podem ser ajustadas antes de iniciar o backend e o frontend:

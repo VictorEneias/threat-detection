@@ -13,8 +13,12 @@ export default function EmailForm() {
   const [finalScore, setFinalScore] = useState(null);
   const [showCards, setShowCards] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
+  const [showContact, setShowContact] = useState(false);
+  const [contactSent, setContactSent] = useState(false);
+  const [contactData, setContactData] = useState({ nome: '', empresa: '', cargo: '', telefone: '', mensagem: '' });
   const jobRef = useRef(null);
   const abortRef = useRef(null);
+  const jobIdRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,6 +53,7 @@ export default function EmailForm() {
       setPortScore(data.port_score || 0);
       setLoadingPort(false);
       jobRef.current = data.job_id;
+      jobIdRef.current = data.job_id;
       pollSoftware(data.job_id);
     } catch (err) {
       if (err.name !== 'AbortError') alert('Erro ao conectar ao backend');
@@ -105,6 +110,37 @@ export default function EmailForm() {
           <ScoreGauge value={finalScore} />
         </div>
       )}
+      {finalScore !== null && !contactSent && (
+        <button
+          className="mt-2 bg-pink-700 hover:bg-pink-600 text-white px-4 py-2 rounded"
+          onClick={() => setShowContact(!showContact)}
+        >
+          Entre em contato conosco
+        </button>
+      )}
+      {showContact && (
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            await fetch('/api/contact', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ job_id: jobIdRef.current, ...contactData })
+            });
+            setContactSent(true);
+            setShowContact(false);
+          }}
+          className="bg-[#1a1a1a] p-4 rounded w-full max-w-xl flex flex-col gap-2 border border-[#ec008c]"
+        >
+          <input className="p-2 rounded text-black" placeholder="Nome" value={contactData.nome} onChange={(e) => setContactData({ ...contactData, nome: e.target.value })} required />
+          <input className="p-2 rounded text-black" placeholder="Empresa" value={contactData.empresa} onChange={(e) => setContactData({ ...contactData, empresa: e.target.value })} required />
+          <input className="p-2 rounded text-black" placeholder="Cargo" value={contactData.cargo} onChange={(e) => setContactData({ ...contactData, cargo: e.target.value })} required />
+          <input className="p-2 rounded text-black" placeholder="Telefone" value={contactData.telefone} onChange={(e) => setContactData({ ...contactData, telefone: e.target.value })} required />
+          <textarea className="p-2 rounded text-black" placeholder="Mensagem" value={contactData.mensagem} onChange={(e) => setContactData({ ...contactData, mensagem: e.target.value })} required />
+          <button className="bg-pink-700 text-white px-4 py-2 rounded" type="submit">Enviar</button>
+        </form>
+      )}
+      {contactSent && <p className="text-green-400">Mensagem enviada!</p>}
 
       <form
         onSubmit={handleSubmit}
