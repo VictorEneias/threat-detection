@@ -7,6 +7,7 @@ from parsers.parse_dnsx import parse_dnsx
 from parsers.parse_naabu import parse_naabu
 from intelligence.risk_mapper import avaliar_portas, avaliar_softwares
 from intelligence.scoring import calcular_score_portas, calcular_score_softwares
+from report import gerar_pdf
 import uuid
 
 
@@ -39,6 +40,15 @@ def limpar_pasta_data() -> None:
         if os.path.isfile(caminho):
             os.remove(caminho)
     print("\n[INFO] Pasta 'data/' limpa para a próxima execução.")
+
+
+def contar_linhas(path: str) -> int:
+    """Conta linhas não vazias em um arquivo."""
+    try:
+        with open(path, "r") as f:
+            return sum(1 for l in f if l.strip())
+    except FileNotFoundError:
+        return 0
 
 
 jobs = {}
@@ -96,6 +106,8 @@ async def executar_analise(email):
     try:
         await run_subfinder(dominio, subs_path, resolved_path)
         ips = await asyncio.to_thread(parse_dnsx, resolved_path)
+        sub_count = await asyncio.to_thread(contar_linhas, subs_path)
+        ip_count = len(ips)
 
         if not ips:
             return {"erro": "Nenhum IP encontrado."}
@@ -105,7 +117,7 @@ async def executar_analise(email):
         portas_abertas = await asyncio.to_thread(parse_naabu, naabu_path)
 
         alertas_portas, softwares = await avaliar_portas(portas_abertas)
-        port_score = calcular_score_portas(alertas_portas, len(ips))
+        port_score = calcular_score_portas(alertas_portas, ip_count)
 
         # disparar software analysis em background
         async def processar_softwares():
@@ -123,12 +135,19 @@ async def executar_analise(email):
             ]
             jobs[job_id]["software_score"] = software_score
             jobs[job_id]["final_score"] = round((port_score + software_score) / 2, 2)
+            await asyncio.to_thread(gerar_pdf, job_id, jobs[job_id])
             limpar_pasta_data()
 
         jobs[job_id] = {
             "software_alertas": None,
             "dominio": dominio,
             "port_score": port_score,
+            "port_alertas": [
+                {"ip": ip, "porta": porta, "mensagem": msg}
+                for ip, porta, msg in alertas_portas
+            ],
+            "sub_count": sub_count,
+            "ip_count": ip_count,
         }
         task = asyncio.create_task(processar_softwares())
         jobs[job_id]["task"] = task
@@ -143,6 +162,8 @@ async def executar_analise(email):
                 for ip, porta, msg in alertas_portas
             ],
             "port_score": port_score,
+            "sub_count": sub_count,
+            "ip_count": ip_count,
         }
     except asyncio.CancelledError:
         limpar_pasta_data()
@@ -167,4 +188,6 @@ async def consultar_software_alertas(job_id: str):
         "port_score": job.get("port_score"),
         "software_score": job.get("software_score"),
         "final_score": job.get("final_score"),
+        "sub_count": job.get("sub_count"),
+        "ip_count": job.get("ip_count"),
     }
