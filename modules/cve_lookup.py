@@ -123,5 +123,8 @@ async def buscar_cves_para_softwares(lista_softwares):
     for r in resultados:
         alertas_cves.extend(r)
 
+    # Ordena alertas de CVEs pelo score CVSS (maior primeiro)
+    alertas_cves.sort(key=lambda a: a.get("cvss", 0), reverse=True)
+
     return alertas_cves
 
