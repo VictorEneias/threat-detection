@@ -1,9 +1,13 @@
-def parse_naabu(filepath):
-    resultados = {}
+import aiofiles
+
+
+async def parse_naabu(filepath: str) -> dict[str, list[int]]:
+    """Lê o resultado do naabu de forma assíncrona."""
+    resultados: dict[str, list[int]] = {}
 
     try:
-        with open(filepath, "r") as f:
-            for line in f:
+        async with aiofiles.open(filepath, "r") as f:
+            async for line in f:
                 if ":" in line:
                     ip, porta = line.strip().split(":")
                     resultados.setdefault(ip, []).append(int(porta))
@@ -11,4 +15,3 @@ def parse_naabu(filepath):
         print(f"[ERRO] Arquivo {filepath} não encontrado.")
 
     return resultados
-

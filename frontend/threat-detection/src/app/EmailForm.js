@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef } from 'react';
-import ScoreGauge from './Gauge';
+import ScoreGauge from './ScoreGauge';
 
 export default function EmailForm() {
   const [email, setEmail] = useState('');
