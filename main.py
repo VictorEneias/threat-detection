@@ -5,6 +5,7 @@ from modules.subfinder import run_subfinder
 from modules.naabu import run_naabu
 from parsers.parse_dnsx import parse_dnsx
 from parsers.parse_naabu import parse_naabu
+import aiofiles
 from intelligence.risk_mapper import avaliar_portas, avaliar_softwares
 from intelligence.scoring import calcular_score_portas, calcular_score_softwares
 import uuid
@@ -24,11 +25,11 @@ def extrair_dominio(email: str) -> str | None:
     return f"{partes.domain}.{partes.suffix}"
 
 
-def salvar_ips(ip_list: list[str], path: str) -> None:
-    """Salva uma lista de IPs em ``path``."""
-    with open(path, "w") as f:
+async def salvar_ips(ip_list: list[str], path: str) -> None:
+    """Salva uma lista de IPs em ``path`` de maneira assíncrona."""
+    async with aiofiles.open(path, "w") as f:
         for ip in ip_list:
-            f.write(ip + "\n")
+            await f.write(ip + "\n")
 
 
 def limpar_pasta_data() -> None:
@@ -54,7 +55,6 @@ def cancelar_job(job_id: str) -> bool:
     task = job.get("task")
     if task:
         task.cancel()
-    return True
 
 
 def cancelar_analise_atual() -> bool:
@@ -95,14 +95,14 @@ async def executar_analise(email):
 
     try:
         await run_subfinder(dominio, subs_path, resolved_path)
-        ips = await asyncio.to_thread(parse_dnsx, resolved_path)
+        ips = await parse_dnsx(resolved_path)
 
         if not ips:
             return {"erro": "Nenhum IP encontrado."}
 
-        await asyncio.to_thread(salvar_ips, ips, iplist_path)
+        await salvar_ips(ips, iplist_path)
         await run_naabu(iplist_path, naabu_path)
-        portas_abertas = await asyncio.to_thread(parse_naabu, naabu_path)
+        portas_abertas = await parse_naabu(naabu_path)
 
         alertas_portas, softwares = await avaliar_portas(portas_abertas)
         port_score = calcular_score_portas(alertas_portas, len(ips))

@@ -1,9 +1,13 @@
-def parse_dnsx(filepath):
+import aiofiles
+
+
+async def parse_dnsx(filepath: str) -> list[str]:
+    """Lê o arquivo de saída do dnsx de forma assíncrona."""
     ips_unicos = set()
 
     try:
-        with open(filepath, "r") as f:
-            for line in f:
+        async with aiofiles.open(filepath, "r") as f:
+            async for line in f:
                 ip = line.strip()
                 if ip:
                     ips_unicos.add(ip)
@@ -11,4 +15,3 @@ def parse_dnsx(filepath):
         print(f"[ERRO] Arquivo {filepath} não encontrado.")
 
     return list(ips_unicos)
-

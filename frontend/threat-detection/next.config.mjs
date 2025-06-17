@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
+  reactStrictMode: true, // opcional, mas recomendado
+  // output: 'export',   // ❌ COMENTADO ou removido!
 };
 
 export default nextConfig;

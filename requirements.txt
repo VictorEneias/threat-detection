@@ -4,4 +4,4 @@ pydantic
 tldextract
 motor
 httpx
-
+aiofiles
