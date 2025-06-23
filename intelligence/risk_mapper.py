@@ -5,14 +5,25 @@ import time
 import httpx
 from modules.cve_lookup import buscar_cves_para_softwares
 
-HTTP_CLIENT = httpx.AsyncClient(timeout=10, verify=False)
+HTTP_CLIENT: httpx.AsyncClient | None = None
 CONNECTION_SEM = asyncio.Semaphore(int(os.getenv("CONNECTION_LIMIT", "50")))
 IP_SEM = asyncio.Semaphore(int(os.getenv("IP_LIMIT", "20")))
 
 
+def get_http_client() -> httpx.AsyncClient:
+    """Retorna o cliente HTTP, recriando se estiver fechado."""
+    global HTTP_CLIENT
+    if HTTP_CLIENT is None or HTTP_CLIENT.is_closed:
+        HTTP_CLIENT = httpx.AsyncClient(timeout=10, verify=False)
+    return HTTP_CLIENT
+
+
 async def close_http_client() -> None:
-    """Fecha o cliente HTTP global."""
-    await HTTP_CLIENT.aclose()
+    """Fecha o cliente HTTP global e libera o objeto."""
+    global HTTP_CLIENT
+    if HTTP_CLIENT and not HTTP_CLIENT.is_closed:
+        await HTTP_CLIENT.aclose()
+    HTTP_CLIENT = None
 
 ESMTP_RE = re.compile(r"ESMTP\s+([\w\-\./]+)", re.IGNORECASE)
 MYSQL_RE = re.compile(r"([Mm]\s*\d+\.\d+(?:\.\d+)?(?:-[^\s]+)?)")
@@ -58,7 +69,8 @@ async def obter_server_header(ip, protocolo):
     try:
         url = f"{protocolo}://{ip}"
         async with CONNECTION_SEM:
-            response = await HTTP_CLIENT.head(url, follow_redirects=True)
+            client = get_http_client()
+            response = await client.head(url, follow_redirects=True)
         server = response.headers.get("Server", "").strip()
         if server:
             softwares_detectados.append((ip, 443 if protocolo == "https" else 80, server))
