@@ -117,3 +117,20 @@ async def listar_chamados():
         return json.loads(content) if content else []
     except Exception:
         return []
+
+@app.delete("/api/chamados/{chamado_id}")
+async def remover_chamado(chamado_id: str):
+    """Remove um chamado do arquivo ``chamados.json``."""
+    path = os.path.join("chamados.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Chamado n\u00e3o encontrado")
+    async with aiofiles.open(path, "r") as f:
+        content = await f.read()
+        dados = json.loads(content) if content else []
+    for i, c in enumerate(dados):
+        if c.get("id") == chamado_id:
+            dados.pop(i)
+            async with aiofiles.open(path, "w") as f:
+                await f.write(json.dumps(dados, indent=2))
+            return {"status": "ok"}
+    raise HTTPException(status_code=404, detail="Chamado n\u00e3o encontrado")
