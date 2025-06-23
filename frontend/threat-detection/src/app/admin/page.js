@@ -74,14 +74,14 @@ export default function AdminPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-black text-white">
-      <form onSubmit={handleLogin} className="bg-[#ec008c] p-6 rounded flex flex-col gap-2 w-80">
+      <form onSubmit={handleLogin} className="bg-[#1a1a1a] p-6 rounded flex flex-col gap-2 w-80 text-white border border-[#ec008c]">
         <h2 className="text-center text-xl font-bold mb-2">Login Admin</h2>
         <input
           type="text"
           placeholder="Usuário"
           value={user}
           onChange={(e) => setUser(e.target.value)}
-          className="p-2 rounded text-black"
+          className="p-2 rounded text-black outline-none bg-white"
           required
         />
         <input
@@ -89,10 +89,10 @@ export default function AdminPage() {
           placeholder="Senha"
           value={pass}
           onChange={(e) => setPass(e.target.value)}
-          className="p-2 rounded text-black"
+          className="p-2 rounded text-black outline-none bg-white"
           required
         />
-        <button type="submit" className="bg-black text-white px-4 py-2 rounded mt-2">
+        <button type="submit" className="bg-[#ec008c] hover:bg-pink-600 text-white px-4 py-2 rounded font-semibold">
           Entrar
         </button>
       </form>

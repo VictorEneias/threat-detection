@@ -298,7 +298,7 @@ export default function EmailForm() {
             placeholder="Nome"
             value={nome}
             onChange={(e) => setNome(e.target.value)}
-            className="p-2 rounded text-black"
+            className="p-2 rounded text-white"
             required
           />
           <input
@@ -306,7 +306,7 @@ export default function EmailForm() {
             placeholder="Empresa"
             value={empresa}
             onChange={(e) => setEmpresa(e.target.value)}
-            className="p-2 rounded text-black"
+            className="p-2 rounded text-white"
             required
           />
           <input
@@ -314,7 +314,7 @@ export default function EmailForm() {
             placeholder="Cargo"
             value={cargo}
             onChange={(e) => setCargo(e.target.value)}
-            className="p-2 rounded text-black"
+            className="p-2 rounded text-white"
             required
           />
           <input
@@ -322,14 +322,14 @@ export default function EmailForm() {
             placeholder="Telefone"
             value={telefone}
             onChange={(e) => setTelefone(e.target.value)}
-            className="p-2 rounded text-black"
+            className="p-2 rounded text-white"
             required
           />
           <textarea
             placeholder="Mensagem"
             value={mensagem}
             onChange={(e) => setMensagem(e.target.value)}
-            className="p-2 rounded text-black"
+            className="p-2 rounded text-white"
             required
           />
           <div className="flex gap-2">
