@@ -1,4 +1,6 @@
 import os
+import json
+import aiofiles
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from main import (
@@ -46,3 +48,15 @@ async def cancelar_atual():
     if cancelar_analise_atual():
         return {"status": "cancelado"}
     return {"status": "nenhum"}
+
+@app.get("/api/reports")
+async def listar_relatorios():
+    path = os.path.join("relatorios.json")
+    if not os.path.exists(path):
+        return {}
+    async with aiofiles.open(path, "r") as f:
+        content = await f.read()
+    try:
+        return json.loads(content) if content else {}
+    except Exception:
+        return {}

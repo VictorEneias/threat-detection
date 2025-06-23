@@ -48,12 +48,20 @@ export default function AdminPage() {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center gap-4 bg-black text-white">
         <h1 className="text-2xl font-bold">Painel do Administrador</h1>
-        <button
-          onClick={handleLogout}
-          className="bg-pink-600 px-4 py-2 rounded hover:bg-pink-500"
-        >
-          Sair
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={() => router.push('/admin/relatorios')}
+            className="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600"
+          >
+            Relatórios
+          </button>
+          <button
+            onClick={handleLogout}
+            className="bg-pink-600 px-4 py-2 rounded hover:bg-pink-500"
+          >
+            Sair
+          </button>
+        </div>
       </main>
     );
   }
