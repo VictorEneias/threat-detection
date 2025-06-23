@@ -9,7 +9,7 @@ async def parse_naabu(filepath: str) -> dict[str, list[int]]:
         async with aiofiles.open(filepath, "r") as f:
             async for line in f:
                 if ":" in line:
-                    ip, porta = line.strip().split(":")
+                    ip, porta = line.strip().split(":", 1)
                     resultados.setdefault(ip, []).append(int(porta))
     except FileNotFoundError:
         print(f"[ERRO] Arquivo {filepath} não encontrado.")
