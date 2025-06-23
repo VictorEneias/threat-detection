@@ -2,16 +2,24 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-function ChamadoCard({ chamado }) {
+function ChamadoCard({ chamado, onDelete }) {
   const [open, setOpen] = useState(false);
   const r = chamado.relatorio || {};
   return (
     <div className="bg-[#1a1a1a] p-4 rounded border-l-4 border-[#ec008c]">
       <div className="flex justify-between items-center">
         <h2 className="font-semibold">{chamado.nome} - {chamado.empresa}</h2>
-        <button onClick={() => setOpen(!open)} className="underline">
-          {open ? 'Fechar' : 'Ler mais'}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setOpen(!open)} className="underline">
+            {open ? 'Fechar' : 'Ler mais'}
+          </button>
+          <button
+            onClick={() => onDelete(chamado.id)}
+            className="text-red-500 underline"
+          >
+            Excluir
+          </button>
+        </div>
       </div>
       {open && (
         <div className="mt-2 text-sm space-y-1">
@@ -46,6 +54,16 @@ export default function ChamadosPage() {
     fetchChamados();
   }, []);
 
+  const handleDelete = async (id) => {
+    if (!confirm('Excluir chamado?')) return;
+    const res = await fetch(`/api/chamados/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setChamados((prev) => prev.filter((c) => c.id !== id));
+    } else {
+      alert('Falha ao excluir chamado');
+    }
+  };
+
   return (
     <main className="min-h-screen flex flex-col items-center bg-black text-white p-4 gap-4">
       <h1 className="text-2xl font-bold">Chamados</h1>
@@ -55,7 +73,7 @@ export default function ChamadosPage() {
       <div className="w-full max-w-3xl flex flex-col gap-4">
         {chamados.length === 0 && <p className="text-center">Nenhum chamado.</p>}
         {chamados.map((c) => (
-          <ChamadoCard key={c.id} chamado={c} />
+          <ChamadoCard key={c.id} chamado={c} onDelete={handleDelete} />
         ))}
       </div>
     </main>
