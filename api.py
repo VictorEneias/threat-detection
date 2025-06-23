@@ -1,6 +1,8 @@
 import os
 import json
 import aiofiles
+import uuid
+from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from main import (
@@ -60,3 +62,58 @@ async def listar_relatorios():
         return json.loads(content) if content else {}
     except Exception:
         return {}
+
+@app.delete("/api/reports/{dominio}")
+async def remover_relatorio(dominio: str):
+    """Remove um relatório do arquivo ``relatorios.json``."""
+    path = os.path.join("relatorios.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    async with aiofiles.open(path, "r") as f:
+        content = await f.read()
+        dados = json.loads(content) if content else {}
+    if dominio not in dados:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    dados.pop(dominio)
+    async with aiofiles.open(path, "w") as f:
+        await f.write(json.dumps(dados, indent=2))
+    return {"status": "ok"}
+
+class Chamado(BaseModel):
+    nome: str
+    empresa: str
+    cargo: str
+    telefone: str
+    mensagem: str
+    relatorio: dict
+
+
+@app.post("/api/chamados")
+async def criar_chamado(ch: Chamado):
+    path = os.path.join("chamados.json")
+    try:
+        async with aiofiles.open(path, "r") as f:
+            content = await f.read()
+            dados = json.loads(content) if content else []
+    except FileNotFoundError:
+        dados = []
+    chamado = ch.dict()
+    chamado["id"] = str(uuid.uuid4())
+    chamado["timestamp"] = datetime.utcnow().isoformat()
+    dados.append(chamado)
+    async with aiofiles.open(path, "w") as f:
+        await f.write(json.dumps(dados, indent=2))
+    return {"status": "ok"}
+
+
+@app.get("/api/chamados")
+async def listar_chamados():
+    path = os.path.join("chamados.json")
+    if not os.path.exists(path):
+        return []
+    async with aiofiles.open(path, "r") as f:
+        content = await f.read()
+    try:
+        return json.loads(content) if content else []
+    except Exception:
+        return []

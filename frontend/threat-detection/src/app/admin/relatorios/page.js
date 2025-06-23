@@ -3,15 +3,23 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-function ReportCard({ dominio, info }) {
+function ReportCard({ dominio, info, onDelete }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="bg-[#1a1a1a] p-4 rounded border-l-4 border-[#ec008c]">
       <div className="flex justify-between items-center">
         <h2 className="font-semibold">{dominio}</h2>
-        <button onClick={() => setOpen(!open)} className="underline">
-          {open ? 'Fechar' : 'Ler mais'}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setOpen(!open)} className="underline">
+            {open ? 'Fechar' : 'Ler mais'}
+          </button>
+          <button
+            onClick={() => onDelete(dominio)}
+            className="text-red-500 underline"
+          >
+            Excluir
+          </button>
+        </div>
       </div>
       {open && (
         <div className="mt-2 text-sm">
@@ -58,6 +66,20 @@ export default function RelatoriosPage() {
   const [reports, setReports] = useState({});
   const router = useRouter();
 
+  const handleDelete = async (dom) => {
+    if (!confirm(`Excluir relatorio de ${dom}?`)) return;
+    const res = await fetch(`/api/reports/${dom}`, { method: 'DELETE' });
+    if (res.ok) {
+      setReports((prev) => {
+        const copy = { ...prev };
+        delete copy[dom];
+        return copy;
+      });
+    } else {
+      alert('Falha ao excluir relatório');
+    }
+  };
+
   useEffect(() => {
     const fetchReports = async () => {
       const res = await fetch('/api/reports');
@@ -78,7 +100,12 @@ export default function RelatoriosPage() {
       <div className="w-full max-w-3xl flex flex-col gap-4">
         {keys.length === 0 && <p className="text-center">Nenhum relatório disponível.</p>}
         {keys.map((dom) => (
-          <ReportCard key={dom} dominio={dom} info={reports[dom]} />
+          <ReportCard
+            key={dom}
+            dominio={dom}
+            info={reports[dom]}
+            onDelete={handleDelete}
+          />
         ))}
       </div>
     </main>

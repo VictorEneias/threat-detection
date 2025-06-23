@@ -13,8 +13,18 @@ export default function EmailForm() {
   const [finalScore, setFinalScore] = useState(null);
   const [showCards, setShowCards] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
+  const [dominio, setDominio] = useState('');
+  const [numSubs, setNumSubs] = useState(0);
+  const [numIps, setNumIps] = useState(0);
+  const [showContact, setShowContact] = useState(false);
+  const [nome, setNome] = useState('');
+  const [empresa, setEmpresa] = useState('');
+  const [cargo, setCargo] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [mensagem, setMensagem] = useState('');
   const jobRef = useRef(null);
   const abortRef = useRef(null);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -45,6 +55,9 @@ export default function EmailForm() {
         setLoadingSoft(false);
         return;
       }
+      setDominio(data.dominio || '');
+      setNumSubs(data.num_subdominios || 0);
+      setNumIps(data.num_ips || 0);
       setPortAlerts(data.alertas || []);
       setPortScore(data.port_score || 0);
       setLoadingPort(false);
@@ -63,6 +76,9 @@ export default function EmailForm() {
       const res = await fetch(`/api/software-analysis/${id}`);
       const data = await res.json();
       if (data.alertas) {
+        setDominio(data.dominio || dominio);
+        setNumSubs(data.num_subdominios || numSubs);
+        setNumIps(data.num_ips || numIps);
         setSoftAlerts(data.alertas);
         setSoftScore(data.software_score || 0);
         setFinalScore(data.final_score ?? null);
@@ -95,6 +111,43 @@ export default function EmailForm() {
     setLoadingSoft(false);
     setShowCards(false);
     setSelectedDetail(null);
+  };
+
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    const payload = {
+      nome,
+      empresa,
+      cargo,
+      telefone,
+      mensagem,
+      relatorio: {
+        dominio,
+        num_subdominios: numSubs,
+        num_ips: numIps,
+        port_score: portScore,
+        software_score: softScore,
+        final_score: finalScore,
+        port_alertas: portAlerts,
+        software_alertas: softAlerts,
+      },
+    };
+    const res = await fetch('/api/chamados', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      alert('Chamado enviado com sucesso!');
+      setShowContact(false);
+      setNome('');
+      setEmpresa('');
+      setCargo('');
+      setTelefone('');
+      setMensagem('');
+    } else {
+      alert('Erro ao enviar chamado');
+    }
   };
 
   return (
@@ -222,8 +275,68 @@ export default function EmailForm() {
                 <p className="text-sm italic text-gray-400">Nenhum alerta encontrado.</p>
               )}
             </div>
-          )}
-        </>
+      )}
+      </>
+      )}
+
+      {finalScore !== null && !showContact && (
+        <button
+          onClick={() => setShowContact(true)}
+          className="mt-4 bg-[#ec008c] px-4 py-2 rounded text-white"
+        >
+          Entre em contato conosco
+        </button>
+      )}
+
+      {showContact && (
+        <form
+          onSubmit={handleContactSubmit}
+          className="bg-[#1a1a1a] p-4 rounded mt-4 w-full max-w-xl flex flex-col gap-2 text-white border border-[#ec008c]"
+        >
+          <input
+            type="text"
+            placeholder="Nome"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            className="p-2 rounded text-black"
+            required
+          />
+          <input
+            type="text"
+            placeholder="Empresa"
+            value={empresa}
+            onChange={(e) => setEmpresa(e.target.value)}
+            className="p-2 rounded text-black"
+            required
+          />
+          <input
+            type="text"
+            placeholder="Cargo"
+            value={cargo}
+            onChange={(e) => setCargo(e.target.value)}
+            className="p-2 rounded text-black"
+            required
+          />
+          <input
+            type="text"
+            placeholder="Telefone"
+            value={telefone}
+            onChange={(e) => setTelefone(e.target.value)}
+            className="p-2 rounded text-black"
+            required
+          />
+          <textarea
+            placeholder="Mensagem"
+            value={mensagem}
+            onChange={(e) => setMensagem(e.target.value)}
+            className="p-2 rounded text-black"
+            required
+          />
+          <div className="flex gap-2">
+            <button type="submit" className="bg-[#ec008c] px-4 py-2 rounded">Enviar</button>
+            <button type="button" onClick={() => setShowContact(false)} className="bg-gray-700 px-4 py-2 rounded">Cancelar</button>
+          </div>
+        </form>
       )}
 
       {/* ESTILO DA BARRA ANIMADA */}
