@@ -17,6 +17,7 @@ db = client.cvedb
 # --------------------------------------------------
 _cpe_entries: list[tuple[str, str]] = []
 _cpe_lookup: dict[tuple[str, str, str], list[str]] = defaultdict(list)
+_cpe_single_lookup: dict[tuple[str, str], list[str]] = defaultdict(list)
 _cpe_loaded = False
 
 
@@ -38,6 +39,7 @@ def _load_cpe_index() -> None:
         if len(parts) >= 6:
             key = (parts[3].lower(), parts[4].lower(), parts[5].lower())
             _cpe_lookup[key].append(name)
+            _cpe_single_lookup[(parts[4].lower(), parts[5].lower())].append(name)
     _cpe_loaded = True
 
 
@@ -64,6 +66,10 @@ async def buscar_cves_para_softwares(lista_softwares):
             resultado = _cpe_lookup.get((nomes[0], nomes[1], versao))
             if resultado:
                 return resultado[0]
+        if len(nomes) == 1:
+            res = _cpe_single_lookup.get((nomes[0], versao))
+            if res:
+                return res[0]
         for lower, full in _cpe_entries:
             if all(n in lower for n in nomes) and versao in lower:
                 return full
@@ -75,11 +81,10 @@ async def buscar_cves_para_softwares(lista_softwares):
             nome = nome.lower()
             versao = versao.strip()
             partes_nome = NAME_SPLIT_RE.split(nome)
-            loop = asyncio.get_running_loop()
             if len(partes_nome) >= 2:
-                cpe = await loop.run_in_executor(None, _find_cpe, partes_nome[0], partes_nome[1], versao)
+                cpe = _find_cpe(partes_nome[0], partes_nome[1], versao)
             else:
-                cpe = await loop.run_in_executor(None, _find_cpe, nome, versao)
+                cpe = _find_cpe(nome, versao)
             if cpe:
                 print(f"[✔️] {nome} {versao} → {cpe}")
                 return (ip, porta, item, cpe)
@@ -98,12 +103,15 @@ async def buscar_cves_para_softwares(lista_softwares):
     print("\n=== BUSCANDO CVEs ===")
     alertas_cves = []
     sem = asyncio.Semaphore(10)
+    cve_cache: dict[str, list[dict]] = {}
 
     async def consultar_cves(ip, porta, software, cpe):
         async with sem:
-            query = {"vulnerable_configuration": cpe}
-            cursor = db.cves.find(query, {"id": 1, "cvss": 1, "cvss3": 1}).limit(5)
-            cves = await cursor.to_list(length=5)
+            if cpe not in cve_cache:
+                query = {"vulnerable_configuration": cpe}
+                cursor = db.cves.find(query, {"id": 1, "cvss": 1, "cvss3": 1}).limit(5)
+                cve_cache[cpe] = await cursor.to_list(length=5)
+            cves = cve_cache[cpe]
         if not cves:
             print(f"[CVE] Nenhuma CVE para {cpe}")
             return []

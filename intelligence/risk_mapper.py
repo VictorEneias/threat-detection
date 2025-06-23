@@ -1,12 +1,18 @@
 import asyncio
+import os
 import re
 import time
 import httpx
 from modules.cve_lookup import buscar_cves_para_softwares
 
 HTTP_CLIENT = httpx.AsyncClient(timeout=10, verify=False)
-CONNECTION_SEM = asyncio.Semaphore(50)
-IP_SEM = asyncio.Semaphore(20)
+CONNECTION_SEM = asyncio.Semaphore(int(os.getenv("CONNECTION_LIMIT", "50")))
+IP_SEM = asyncio.Semaphore(int(os.getenv("IP_LIMIT", "20")))
+
+
+async def close_http_client() -> None:
+    """Fecha o cliente HTTP global."""
+    await HTTP_CLIENT.aclose()
 
 ESMTP_RE = re.compile(r"ESMTP\s+([\w\-\./]+)", re.IGNORECASE)
 MYSQL_RE = re.compile(r"([Mm]\s*\d+\.\d+(?:\.\d+)?(?:-[^\s]+)?)")

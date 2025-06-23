@@ -7,7 +7,11 @@ from modules.naabu import run_naabu
 from parsers.parse_dnsx import parse_dnsx
 from parsers.parse_naabu import parse_naabu
 import aiofiles
-from intelligence.risk_mapper import avaliar_portas, avaliar_softwares
+from intelligence.risk_mapper import (
+    avaliar_portas,
+    avaliar_softwares,
+    close_http_client,
+)
 from intelligence.scoring import calcular_score_portas, calcular_score_softwares
 import uuid
 
@@ -29,8 +33,8 @@ def extrair_dominio(email: str) -> str | None:
 async def salvar_ips(ip_list: list[str], path: str) -> None:
     """Salva uma lista de IPs em ``path`` de maneira assíncrona."""
     async with aiofiles.open(path, "w") as f:
-        for ip in ip_list:
-            await f.write(ip + "\n")
+        if ip_list:
+            await f.write("\n".join(ip_list) + "\n")
 
 async def contar_linhas(path: str) -> int:
     """Conta linhas de um arquivo de forma assíncrona."""
@@ -44,29 +48,30 @@ async def contar_linhas(path: str) -> int:
     return total
 
 
+_relatorios_cache: dict | None = None
+
+
 async def salvar_relatorio_json(info: dict) -> None:
     """Adiciona ou atualiza um relatório no arquivo JSON (fora da pasta data/)."""
+    global _relatorios_cache
     path = os.path.join("relatorios.json")
-    print(f"[DEBUG] Salvando relatório em: {path}")
 
-    try:
-        async with aiofiles.open(path, "r") as f:
-            content = await f.read()
-            print(f"[DEBUG] Conteúdo atual do relatório: {content[:100]}...")
-            dados = json.loads(content) if content else {}
-    except FileNotFoundError:
-        print(f"[DEBUG] Arquivo {path} não encontrado. Será criado.")
-        dados = {}
-    except Exception as e:
-        print(f"[ERRO] Falha ao ler {path}: {e}")
-        dados = {}
+    if _relatorios_cache is None:
+        try:
+            async with aiofiles.open(path, "r") as f:
+                content = await f.read()
+                _relatorios_cache = json.loads(content) if content else {}
+        except FileNotFoundError:
+            _relatorios_cache = {}
+        except Exception as e:
+            print(f"[ERRO] Falha ao ler {path}: {e}")
+            _relatorios_cache = {}
 
-    dados[info["dominio"]] = info
+    _relatorios_cache[info["dominio"]] = info
 
     try:
         async with aiofiles.open(path, "w") as f:
-            await f.write(json.dumps(dados, indent=2))
-        print(f"[DEBUG] Relatório de {info['dominio']} salvo com sucesso.")
+            await f.write(json.dumps(_relatorios_cache, indent=2))
     except Exception as e:
         print(f"[ERRO] Falha ao escrever {path}: {e}")
 
@@ -178,6 +183,7 @@ async def executar_analise(email):
                 }
             )
             limpar_pasta_data()
+            await close_http_client()
 
         jobs[job_id] = {
             "software_alertas": None,
@@ -211,6 +217,7 @@ async def executar_analise(email):
     finally:
         current_port_task = None
         current_job_id = None
+        await close_http_client()
 
 
 async def consultar_software_alertas(job_id: str):
@@ -220,7 +227,7 @@ async def consultar_software_alertas(job_id: str):
         return {"erro": "Job não encontrado"}
     if job["software_alertas"] is None:
         return {"status": "pendente", "port_score": job.get("port_score")}
-    return {
+    result = {
         "alertas": job["software_alertas"],
         "dominio": job["dominio"],
         "port_score": job.get("port_score"),
@@ -230,3 +237,5 @@ async def consultar_software_alertas(job_id: str):
         "num_ips": job.get("num_ips"),
         "port_alertas": job.get("port_alertas"),
     }
+    jobs.pop(job_id, None)
+    return result
