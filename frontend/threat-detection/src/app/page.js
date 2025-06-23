@@ -20,16 +20,16 @@ export default function Home() {
 
     return (
       <main className="min-h-screen flex items-center justify-center bg-black text-white">
-        <form onSubmit={handleSubmit} className="bg-[#ec008c] p-4 rounded flex gap-2">
+        <form onSubmit={handleSubmit} className="bg-[#1a1a1a] p-4 rounded shadow-lg flex flex-col md:flex-row gap-2 text-white border border-[#ec008c]">
           <input
             type="password"
             placeholder="Senha"
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
-            className="p-2 rounded text-black"
+            className="p-2 rounded text-black outline-none bg-white"
             required
           />
-          <button type="submit" className="bg-black text-white px-4 py-2 rounded">
+          <button type="submit" className="bg-[#ec008c] hover:bg-pink-600 text-white px-4 py-2 rounded font-semibold">
             Entrar
           </button>
         </form>
