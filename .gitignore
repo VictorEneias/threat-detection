@@ -6,3 +6,4 @@ venv/
 /frontend/threat-detection/.next/
 /frontend/threat-detection/out/
 relatorios.json
+chamados.json

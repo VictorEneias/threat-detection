@@ -56,6 +56,12 @@ export default function AdminPage() {
             Relatórios
           </button>
           <button
+            onClick={() => router.push('/admin/chamados')}
+            className="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600"
+          >
+            Chamados
+          </button>
+          <button
             onClick={handleLogout}
             className="bg-pink-600 px-4 py-2 rounded hover:bg-pink-500"
           >
