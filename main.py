@@ -1,6 +1,7 @@
 import asyncio
 import os
 import tldextract
+import json
 from modules.subfinder import run_subfinder
 from modules.naabu import run_naabu
 from parsers.parse_dnsx import parse_dnsx
@@ -31,11 +32,50 @@ async def salvar_ips(ip_list: list[str], path: str) -> None:
         for ip in ip_list:
             await f.write(ip + "\n")
 
+async def contar_linhas(path: str) -> int:
+    """Conta linhas de um arquivo de forma assíncrona."""
+    total = 0
+    try:
+        async with aiofiles.open(path, "r") as f:
+            async for _ in f:
+                total += 1
+    except FileNotFoundError:
+        print(f"[ERRO] Arquivo {path} não encontrado.")
+    return total
+
+
+async def salvar_relatorio_json(info: dict) -> None:
+    """Adiciona ou atualiza um relatório no arquivo JSON (fora da pasta data/)."""
+    path = os.path.join("relatorios.json")
+    print(f"[DEBUG] Salvando relatório em: {path}")
+
+    try:
+        async with aiofiles.open(path, "r") as f:
+            content = await f.read()
+            print(f"[DEBUG] Conteúdo atual do relatório: {content[:100]}...")
+            dados = json.loads(content) if content else {}
+    except FileNotFoundError:
+        print(f"[DEBUG] Arquivo {path} não encontrado. Será criado.")
+        dados = {}
+    except Exception as e:
+        print(f"[ERRO] Falha ao ler {path}: {e}")
+        dados = {}
+
+    dados[info["dominio"]] = info
+
+    try:
+        async with aiofiles.open(path, "w") as f:
+            await f.write(json.dumps(dados, indent=2))
+        print(f"[DEBUG] Relatório de {info['dominio']} salvo com sucesso.")
+    except Exception as e:
+        print(f"[ERRO] Falha ao escrever {path}: {e}")
 
 def limpar_pasta_data() -> None:
     """Remove arquivos temporários gerados em ``data/``."""
     pasta = "data"
     for arquivo in os.listdir(pasta):
+        if arquivo == "relatorios.json":
+            continue  # evita apagar o relatório
         caminho = os.path.join(pasta, arquivo)
         if os.path.isfile(caminho):
             os.remove(caminho)
@@ -95,7 +135,9 @@ async def executar_analise(email):
 
     try:
         await run_subfinder(dominio, subs_path, resolved_path)
+        num_subdominios = await contar_linhas(subs_path)
         ips = await parse_dnsx(resolved_path)
+        num_ips = len(ips)
 
         if not ips:
             return {"erro": "Nenhum IP encontrado."}
@@ -105,7 +147,7 @@ async def executar_analise(email):
         portas_abertas = await parse_naabu(naabu_path)
 
         alertas_portas, softwares = await avaliar_portas(portas_abertas)
-        port_score = calcular_score_portas(alertas_portas, len(ips))
+        port_score = calcular_score_portas(alertas_portas, num_ips)
 
         # disparar software analysis em background
         async def processar_softwares():
@@ -123,12 +165,30 @@ async def executar_analise(email):
             ]
             jobs[job_id]["software_score"] = software_score
             jobs[job_id]["final_score"] = round((port_score + software_score) / 2, 2)
+            await salvar_relatorio_json(
+                {
+                    "dominio": dominio,
+                    "num_subdominios": num_subdominios,
+                    "num_ips": num_ips,
+                    "port_alertas": jobs[job_id]["port_alertas"],
+                    "software_alertas": jobs[job_id]["software_alertas"],
+                    "port_score": port_score,
+                    "software_score": software_score,
+                    "final_score": jobs[job_id]["final_score"],
+                }
+            )
             limpar_pasta_data()
 
         jobs[job_id] = {
             "software_alertas": None,
             "dominio": dominio,
             "port_score": port_score,
+            "num_subdominios": num_subdominios,
+            "num_ips": num_ips,
+            "port_alertas": [
+                {"ip": ip, "porta": porta, "mensagem": msg}
+                for ip, porta, msg in alertas_portas
+            ],
         }
         task = asyncio.create_task(processar_softwares())
         jobs[job_id]["task"] = task
@@ -138,11 +198,10 @@ async def executar_analise(email):
             "job_id": job_id,
             "dominio": dominio,
             "ips_com_portas": portas_abertas,
-            "alertas": [
-                {"ip": ip, "porta": porta, "mensagem": msg}
-                for ip, porta, msg in alertas_portas
-            ],
+            "alertas": jobs[job_id]["port_alertas"],
             "port_score": port_score,
+            "num_subdominios": num_subdominios,
+            "num_ips": num_ips,
         }
     except asyncio.CancelledError:
         limpar_pasta_data()
@@ -167,4 +226,7 @@ async def consultar_software_alertas(job_id: str):
         "port_score": job.get("port_score"),
         "software_score": job.get("software_score"),
         "final_score": job.get("final_score"),
+        "num_subdominios": job.get("num_subdominios"),
+        "num_ips": job.get("num_ips"),
+        "port_alertas": job.get("port_alertas"),
     }
