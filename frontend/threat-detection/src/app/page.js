@@ -45,6 +45,22 @@ export default function Home() {
       <div className="flex-1 flex items-center justify-center w-full px-4">
         <EmailForm />
       </div>
+      <div className="fixed bottom-4 right-4 flex flex-col items-end gap-3 z-50">
+        <a
+          href="https://ngsx.com.br"
+          target="_blank"
+          className="bg-[#ec008c] hover:bg-pink-700 text-white px-4 py-2 rounded-full shadow-lg font-medium text-sm flex items-center gap-2"
+        >
+          <i className="fas fa-globe"></i> Site NGSX
+        </a>
+        <a
+          href="https://api.whatsapp.com/send?phone=556130341227"
+          target="_blank"
+          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full shadow-lg font-medium text-sm flex items-center gap-2"
+        >
+          <i className="fab fa-whatsapp"></i> WhatsApp
+        </a>
+      </div>
     </main>
   );
 }

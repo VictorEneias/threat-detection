@@ -6,16 +6,16 @@ export default function ScoreGauge({ value }) {
   const percentage = Math.round(value * 100);
 
   const getColor = () => {
-    if (value < 0.3) return '#00FF00'; // verde
-    if (value < 0.5) return '#FFBF00'; // amarelo
-    if (value < 0.7) return '#FF8000'; // laranja
+    if (value > 0.8) return '#00FF00'; // verde
+    if (value > 0.5) return '#FFBF00'; // amarelo
+    if (value > 0.3) return '#FF8000'; // laranja
     return '#FF0000'; // vermelho
   };
 
   const getInterpretation = () => {
-    if (value < 0.3) return 'Risco baixo';
-    if (value < 0.5) return 'Risco moderado';
-    if (value < 0.7) return 'Risco moderado';
+    if (value > 0.8) return 'Risco baixo';
+    if (value > 0.5) return 'Risco moderado';
+    if (value > 0.3) return 'Risco alto';
     return 'Risco crítico';
   };
 
@@ -24,7 +24,7 @@ export default function ScoreGauge({ value }) {
       <div className="w-40 h-40">
         <CircularProgressbar
           value={percentage}
-          text={`${percentage}%`}
+          text={`${percentage}/100`}
           strokeWidth={10}
           styles={buildStyles({
             textColor: 'white',
