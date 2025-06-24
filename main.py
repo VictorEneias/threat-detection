@@ -169,7 +169,10 @@ async def executar_analise(email):
                 for a in alertas_softwares
             ]
             jobs[job_id]["software_score"] = software_score
-            jobs[job_id]["final_score"] = round((port_score + software_score) / 2, 2)
+            if software_score != 0:
+                jobs[job_id]["final_score"] = round((2*port_score + software_score) / 3, 2)
+            else:
+                jobs[job_id]["final_score"] = port_score
             await salvar_relatorio_json(
                 {
                     "dominio": dominio,
