@@ -38,7 +38,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center bg-black text-white">
+    <main className="min-h-screen flex flex-col items-center bg-black text-white gap-2">
       <header className="w-full bg-[#ec008c] py-4 text-center">
         <h1 className="font-bold text-lg md:text-2xl uppercase">ANÁLISE DE SEGURANÇA CORPORATIVA</h1>
       </header>
@@ -49,16 +49,16 @@ export default function Home() {
         <a
           href="https://ngsx.com.br"
           target="_blank"
-          className="bg-[#ec008c] hover:bg-pink-700 text-white px-4 py-2 rounded-full shadow-lg font-medium text-sm flex items-center gap-2"
-        >
-          <i className="fas fa-globe"></i> Site NGSX
+          className="min-w-[160px] text-center bg-[#ec008c] hover:bg-pink-700 text-white px-4 py-2 rounded-full shadow-lg font-medium text-sm flex items-center justify-center gap-2">
+          <img src="/favicon.ico" alt="NGSXIcon" className="w-5 h-5" />
+          Site NGSX
         </a>
         <a
           href="https://api.whatsapp.com/send?phone=556130341227"
           target="_blank"
-          className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full shadow-lg font-medium text-sm flex items-center gap-2"
-        >
-          <i className="fab fa-whatsapp"></i> WhatsApp
+          className="min-w-[160px] text-center bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-full shadow-lg font-medium text-sm flex items-center justify-center gap-1">
+          <img src="/whatsapp.png" alt="WhatsApp" className="w-5 h-5" />
+          WhatsApp
         </a>
       </div>
     </main>
