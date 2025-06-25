@@ -27,6 +27,7 @@ export default function EmailForm() {
   const [cargo, setCargo] = useState('');
   const [telefone, setTelefone] = useState('');
   const [mensagem, setMensagem] = useState('');
+  const [performLeak, setPerformLeak] = useState(true);
   const jobRef = useRef(null);
   const abortRef = useRef(null);
 
@@ -37,7 +38,7 @@ export default function EmailForm() {
     setShowCards(true);
     setLoadingPort(true);
     setLoadingSoft(true);
-    setLoadingLeak(true);
+    setLoadingLeak(performLeak);
     setPortAlerts([]);
     setSoftAlerts([]);
     setNumEmails(0);
@@ -51,17 +52,19 @@ export default function EmailForm() {
     jobRef.current = null;
 
     try {
-      const leakFetch = fetch('/api/leak-analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alvo }),
-        signal: abortRef.current.signal
-      });
+      const leakFetch = performLeak
+        ? fetch('/api/leak-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ alvo, leak_analysis: performLeak }),
+            signal: abortRef.current.signal,
+          })
+        : null;
 
       const res = await fetch('/api/port-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alvo }),
+        body: JSON.stringify({ alvo, leak_analysis: performLeak }),
         signal: abortRef.current.signal
       });
 
@@ -81,14 +84,18 @@ export default function EmailForm() {
       jobRef.current = data.job_id;
       pollSoftware(data.job_id);
 
-      try {
-        const lr = await leakFetch;
-        const leakData = await lr.json();
-        setNumEmails(leakData.num_emails || 0);
-        setNumPasswords(leakData.num_passwords || 0);
-        setNumHashes(leakData.num_hashes || 0);
-        setLeakScore(leakData.leak_score || 0);
-      } catch (e) {}
+      if (performLeak && leakFetch) {
+        try {
+          const lr = await leakFetch;
+          const leakData = await lr.json();
+          setNumEmails(leakData.num_emails || 0);
+          setNumPasswords(leakData.num_passwords || 0);
+          setNumHashes(leakData.num_hashes || 0);
+          setLeakScore(leakData.leak_score || 0);
+        } catch (e) {}
+      } else {
+        setLeakScore(0);
+      }
       setLoadingLeak(false);
     } catch (err) {
       if (err.name !== 'AbortError') alert('Erro ao conectar ao backend');
@@ -208,7 +215,21 @@ export default function EmailForm() {
           className="flex-1 p-3 rounded bg-white text-black outline-none"
           required
         />
-        <div className="flex flex-col md:flex-row gap-2">
+        <div className="flex flex-col md:flex-row gap-2 items-center">
+          <div className="flex items-center gap-2 mr-2">
+            <span className="text-sm">Data Leak</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={performLeak}
+              onClick={() => setPerformLeak(!performLeak)}
+              className={`${performLeak ? 'bg-green-600' : 'bg-gray-600'} relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none`}
+            >
+              <span
+                className={`${performLeak ? 'translate-x-6' : 'translate-x-1'} inline-block h-4 w-4 transform rounded-full bg-white transition-transform`}
+              />
+            </button>
+          </div>
           <button
             type="submit"
             className="bg-[#ec008c] hover:bg-pink-600 text-white px-4 py-2 rounded font-semibold"
@@ -279,26 +300,27 @@ export default function EmailForm() {
               )}
             </div>
 
-            {/* Leak Analysis */}
-            <div className="bg-[#1a1a1a] text-white p-5 rounded-2xl shadow-lg w-full md:w-[48%] lg:w-[30%] border-l-4 border-[#ec008c]">
-              <h2 className="text-xl font-semibold mb-2">Leak Analysis</h2>
-              {loadingLeak ? (
-                <p className="animate-pulse text-sm">Coletando dados...</p>
-              ) : (
-                <>
-                  <p className="text-base">Score: {leakScore}</p>
-                  <button
-                    type="button"
-                    className="underline text-sm mt-2"
-                    onClick={() =>
-                      setSelectedDetail(selectedDetail === 'leak' ? null : 'leak')
-                    }
-                  >
-                    Ver Detalhes
-                  </button>
-                </>
-              )}
-            </div>
+            {performLeak && (
+              <div className="bg-[#1a1a1a] text-white p-5 rounded-2xl shadow-lg w-full md:w-[48%] lg:w-[30%] border-l-4 border-[#ec008c]">
+                <h2 className="text-xl font-semibold mb-2">Leak Analysis</h2>
+                {loadingLeak ? (
+                  <p className="animate-pulse text-sm">Coletando dados...</p>
+                ) : (
+                  <>
+                    <p className="text-base">Score: {leakScore}</p>
+                    <button
+                      type="button"
+                      className="underline text-sm mt-2"
+                      onClick={() =>
+                        setSelectedDetail(selectedDetail === 'leak' ? null : 'leak')
+                      }
+                    >
+                      Ver Detalhes
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Caixa unificada de detalhes */}
@@ -323,7 +345,7 @@ export default function EmailForm() {
                     </li>
                   ))}
                 </ul>
-              ) : selectedDetail === 'leak' ? (
+              ) : selectedDetail === 'leak' && performLeak ? (
                 <p className="text-sm">
                   Encontramos {numEmails} vazamentos de emails em seu dominio, destes {numPasswords} vazaram com a senha em plain text e {numHashes} vazaram com a senha em hash
                 </p>
