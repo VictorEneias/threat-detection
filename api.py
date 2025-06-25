@@ -12,6 +12,7 @@ from main import (
     cancelar_job,
     cancelar_analise_atual,
     extrair_dominio,
+    salvar_relatorio_json,
 )
 from modules.dehashed import verificar_vazamentos
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,7 +48,9 @@ async def leak(req: AnaliseRequest):
     if not dominio:
         raise HTTPException(status_code=400, detail="E-mail inválido")
     try:
-        return await verificar_vazamentos(dominio)
+        resultado = await verificar_vazamentos(dominio)
+        await salvar_relatorio_json({"dominio": dominio, **resultado})
+        return resultado
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=502, detail="Falha ao consultar DeHashed")
