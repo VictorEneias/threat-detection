@@ -3,7 +3,7 @@ import json
 import aiofiles
 import httpx
 
-DEHASHED_API_KEY = os.getenv("DEHASHED_API_KEY", "xXOv3cqwpW0SppCwhipaG7htxZEV8oAI2QoIb3IQNN+UNlQZEXfa8f0=")
+DEHASHED_API_KEY = os.getenv("DEHASHED_API_KEY", "")
 
 async def search_dehashed(query: str, page: int = 1, size: int = 10000,
                           wildcard: bool = False, regex: bool = False,
