@@ -1,5 +1,6 @@
 import os
 import json
+import traceback
 import aiofiles
 import uuid
 from datetime import datetime
@@ -10,7 +11,9 @@ from main import (
     consultar_software_alertas,
     cancelar_job,
     cancelar_analise_atual,
+    extrair_dominio,
 )
+from modules.dehashed import verificar_vazamentos
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -36,6 +39,18 @@ async def iniciar(req: AnaliseRequest):
 @app.get("/api/software-analysis/{job_id}")
 async def resultado(job_id: str):
     return await consultar_software_alertas(job_id)
+
+
+@app.post("/api/leak-analysis")
+async def leak(req: AnaliseRequest):
+    dominio = extrair_dominio(req.email)
+    if not dominio:
+        raise HTTPException(status_code=400, detail="E-mail inválido")
+    try:
+        return await verificar_vazamentos(dominio)
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=502, detail="Falha ao consultar DeHashed")
 
 
 @app.post("/api/cancel/{job_id}")

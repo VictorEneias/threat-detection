@@ -6,8 +6,12 @@ export default function EmailForm() {
   const [email, setEmail] = useState('');
   const [loadingPort, setLoadingPort] = useState(false);
   const [loadingSoft, setLoadingSoft] = useState(false);
+  const [loadingLeak, setLoadingLeak] = useState(false);
   const [portAlerts, setPortAlerts] = useState([]);
   const [softAlerts, setSoftAlerts] = useState([]);
+  const [numEmails, setNumEmails] = useState(0);
+  const [numPasswords, setNumPasswords] = useState(0);
+  const [numHashes, setNumHashes] = useState(0);
   const [portScore, setPortScore] = useState(0);
   const [softScore, setSoftScore] = useState(0);
   const [finalScore, setFinalScore] = useState(null);
@@ -32,8 +36,12 @@ export default function EmailForm() {
     setShowCards(true);
     setLoadingPort(true);
     setLoadingSoft(true);
+    setLoadingLeak(true);
     setPortAlerts([]);
     setSoftAlerts([]);
+    setNumEmails(0);
+    setNumPasswords(0);
+    setNumHashes(0);
     setPortScore(0);
     setSoftScore(0);
     setFinalScore(null);
@@ -41,6 +49,13 @@ export default function EmailForm() {
     jobRef.current = null;
 
     try {
+      const leakFetch = fetch('/api/leak-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+        signal: abortRef.current.signal
+      });
+
       const res = await fetch('/api/port-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -63,10 +78,20 @@ export default function EmailForm() {
       setLoadingPort(false);
       jobRef.current = data.job_id;
       pollSoftware(data.job_id);
+
+      try {
+        const lr = await leakFetch;
+        const leakData = await lr.json();
+        setNumEmails(leakData.num_emails || 0);
+        setNumPasswords(leakData.num_passwords || 0);
+        setNumHashes(leakData.num_hashes || 0);
+      } catch (e) {}
+      setLoadingLeak(false);
     } catch (err) {
       if (err.name !== 'AbortError') alert('Erro ao conectar ao backend');
       setLoadingPort(false);
       setLoadingSoft(false);
+      setLoadingLeak(false);
     }
   };
 
@@ -109,6 +134,7 @@ export default function EmailForm() {
     jobRef.current = null;
     setLoadingPort(false);
     setLoadingSoft(false);
+    setLoadingLeak(false);
     setShowCards(false);
     setSelectedDetail(null);
   };
@@ -242,10 +268,25 @@ export default function EmailForm() {
               )}
             </div>
 
-            {/* Placeholder */}
+            {/* Leak Analysis */}
             <div className="bg-[#1a1a1a] text-white p-5 rounded-2xl shadow-lg w-full md:w-[48%] lg:w-[30%] border-l-4 border-[#ec008c]">
-              <h2 className="text-xl font-semibold mb-2">Outros Módulos</h2>
-              <p className="italic text-sm text-gray-400">Em breve...</p>
+              <h2 className="text-xl font-semibold mb-2">Leak Analysis</h2>
+              {loadingLeak ? (
+                <p className="animate-pulse text-sm">Coletando dados...</p>
+              ) : (
+                <>
+                  <p className="text-base">Emails vazados: {numEmails}</p>
+                  <button
+                    type="button"
+                    className="underline text-sm mt-2"
+                    onClick={() =>
+                      setSelectedDetail(selectedDetail === 'leak' ? null : 'leak')
+                    }
+                  >
+                    Ver Detalhes
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -253,7 +294,7 @@ export default function EmailForm() {
           {selectedDetail && (
             <div className="mt-4 w-full max-w-7xl bg-[#1a1a1a] text-white p-6 rounded-2xl shadow-lg border border-[#ec008c]">
               <h2 className="text-xl font-bold mb-3">
-                Detalhes: {selectedDetail === 'port' ? 'Port Analysis' : 'Software Analysis'}
+                Detalhes: {selectedDetail === 'port' ? 'Port Analysis' : selectedDetail === 'soft' ? 'Software Analysis' : 'Leak Analysis'}
               </h2>
               {selectedDetail === 'port' && portAlerts.length > 0 ? (
                 <ul className="list-disc list-inside text-sm space-y-1">
@@ -271,6 +312,10 @@ export default function EmailForm() {
                     </li>
                   ))}
                 </ul>
+              ) : selectedDetail === 'leak' ? (
+                <p className="text-sm">
+                  Encontramos {numEmails} vazamentos de emails em seu dominio, destes {numPasswords} vazaram com a senha em plain text e {numHashes} vazaram com a senha em hash
+                </p>
               ) : (
                 <p className="text-sm italic text-gray-400">Nenhum alerta encontrado.</p>
               )}
