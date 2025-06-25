@@ -129,6 +129,8 @@ Algumas configurações podem ser ajustadas antes de iniciar o backend e o front
 - `FRONTEND_URL`: origem permitida pelo CORS (padrão: `http://localhost:3000`)
 - `DEHASHED_API_KEY`: chave para consultar a API do DeHashed
 - `NEXT_PUBLIC_APP_PASSWORD`: senha exigida na tela inicial do frontend (padrão: `senha`)
+- `NEXT_PUBLIC_ADMIN_USER`: usuário do painel admin (padrão: `admin`)
+- `NEXT_PUBLIC_ADMIN_PASS`: senha do painel admin (padrão: `1234`)
 
 O servidor de desenvolvimento do Next.js roda apenas em HTTP. Caso deseje disponibilizar o frontend em HTTPS, utilize um proxy reverso (por exemplo, nginx) para fornecer o certificado TLS.
 
