@@ -31,9 +31,45 @@ export default function EmailForm() {
   const jobRef = useRef(null);
   const abortRef = useRef(null);
 
+  const applyReport = (rep) => {
+    setShowCards(true);
+    setDominio(rep.dominio || '');
+    setNumSubs(rep.num_subdominios || 0);
+    setNumIps(rep.num_ips || 0);
+    setPortAlerts(rep.port_alertas || []);
+    setSoftAlerts(rep.software_alertas || []);
+    setNumEmails(rep.num_emails ?? 0);
+    setNumPasswords(rep.num_passwords ?? 0);
+    setNumHashes(rep.num_hashes ?? 0);
+    setPortScore(rep.port_score || 0);
+    setSoftScore(rep.software_score || 0);
+    setLeakScore(rep.leak_score || 0);
+    setFinalScore(rep.final_score ?? null);
+    setLoadingPort(false);
+    setLoadingSoft(false);
+    setLoadingLeak(false);
+    setSelectedDetail(null);
+    jobRef.current = null;
+  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    let cached = null;
+    try {
+      const r = await fetch(`/api/report?alvo=${encodeURIComponent(alvo)}`);
+      if (r.ok) cached = await r.json();
+    } catch (e) {}
+    if (cached) {
+      const useCache = confirm(
+        'Ja existe um relatorio para este dominio. Usar dados em cache? Cancelar para nova analise.'
+      );
+      if (useCache) {
+        applyReport(cached);
+        return;
+      }
+    }
+    
     abortRef.current = new AbortController();
     setShowCards(true);
     setLoadingPort(true);
