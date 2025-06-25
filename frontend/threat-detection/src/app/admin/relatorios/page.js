@@ -60,6 +60,29 @@ function ReportCard({ dominio, info, onDelete }) {
               <p className="text-gray-400 text-xs">Nenhum alerta.</p>
             )}
           </div>
+          {info.leaked_data && info.leaked_data.length > 0 && (
+            <div className="mt-2">
+              <p className="font-semibold mb-1">Dados Vazados:</p>
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr>
+                    <th className="border px-1">Email</th>
+                    <th className="border px-1">Senha texto</th>
+                    <th className="border px-1">Senha hash</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {info.leaked_data.map((row, idx) => (
+                    <tr key={idx}>
+                      <td className="border px-1 break-all">{row.email}</td>
+                      <td className="border px-1 break-all">{row.password}</td>
+                      <td className="border px-1 break-all">{row.hash}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
