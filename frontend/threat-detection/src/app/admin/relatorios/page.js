@@ -27,6 +27,9 @@ function ReportCard({ dominio, info, onDelete }) {
           <p>IPs únicos: {info.num_ips}</p>
           <p>Nota Portas: {info.port_score}</p>
           <p>Nota Softwares: {info.software_score}</p>
+          <p>Emails Vazados: {info.num_emails ?? 0}</p>
+          <p>Senhas Vazadas: {info.num_passwords ?? 0}</p>
+          <p>Hashes Vazados: {info.num_hashes ?? 0}</p>
           <p>Nota Final: {info.final_score}</p>
           <div className="mt-2">
             <p className="font-semibold">Alertas de Portas:</p>

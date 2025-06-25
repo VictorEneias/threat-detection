@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCookie, setCookie, deleteCookie } from 'cookies-next';
 
-// Simulação de "banco de usuários" (admin)
+// Usuário e senha do admin definidos por variáveis de ambiente
+const ADMIN_USER = process.env.NEXT_PUBLIC_ADMIN_USER || 'admin';
+const ADMIN_PASS = process.env.NEXT_PUBLIC_ADMIN_PASS || '1234';
 const USERS = [
-  { username: 'admin', password: '1234' },
-  { username: 'root', password: 'senhaSegura' },
+  { username: ADMIN_USER, password: ADMIN_PASS },
 ];
 
 export default function AdminPage() {

@@ -67,7 +67,13 @@ async def salvar_relatorio_json(info: dict) -> None:
             print(f"[ERRO] Falha ao ler {path}: {e}")
             _relatorios_cache = {}
 
-    _relatorios_cache[info["dominio"]] = info
+    dominio = info.get("dominio")
+    if not dominio:
+        return
+
+    existente = _relatorios_cache.get(dominio, {"dominio": dominio})
+    existente.update(info)
+    _relatorios_cache[dominio] = existente
 
     try:
         async with aiofiles.open(path, "w") as f:
