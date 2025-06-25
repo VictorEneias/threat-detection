@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-ALLOWED_ORIGIN = os.getenv("FRONTEND_URL", "https://vulndetect.com.br")
+ALLOWED_ORIGIN = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
 app.add_middleware(
     CORSMiddleware,
