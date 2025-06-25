@@ -33,6 +33,7 @@ function ChamadoCard({ chamado, onDelete }) {
             <p>IPs únicos: {r.num_ips}</p>
             <p>Score Portas: {r.port_score}</p>
             <p>Score Softwares: {r.software_score}</p>
+            <p>Score Vazamentos: {r.leak_score}</p>
             <p>Emails Vazados: {r.num_emails ?? 0}</p>
             <p>Senhas Vazadas: {r.num_passwords ?? 0}</p>
             <p>Hashes Vazadas: {r.num_hashes ?? 0}</p>
