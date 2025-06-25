@@ -198,6 +198,7 @@ async def executar_analise(alvo, leak_analysis: bool = True):
             jobs[job_id]["num_emails"] = leak_res.get("num_emails", 0)
             jobs[job_id]["num_passwords"] = leak_res.get("num_passwords", 0)
             jobs[job_id]["num_hashes"] = leak_res.get("num_hashes", 0)
+            jobs[job_id]["leaked_data"] = leak_res.get("leaked_data", [])
 
             # Aplicar pesos e ignorar notas com score 1 (quando aplicável)
             notas = []
@@ -236,6 +237,7 @@ async def executar_analise(alvo, leak_analysis: bool = True):
                     "num_emails": leak_res.get("num_emails", 0),
                     "num_passwords": leak_res.get("num_passwords", 0),
                     "num_hashes": leak_res.get("num_hashes", 0),
+                    "leaked_data": leak_res.get("leaked_data", []),
                     "final_score": jobs[job_id]["final_score"],
                 }
             )
@@ -252,6 +254,7 @@ async def executar_analise(alvo, leak_analysis: bool = True):
             "num_emails": 0,
             "num_passwords": 0,
             "num_hashes": 0,
+            "leaked_data": [],
             "port_alertas": [
                 {"ip": ip, "porta": porta, "mensagem": msg}
                 for ip, porta, msg in alertas_portas
@@ -301,6 +304,7 @@ async def consultar_software_alertas(job_id: str):
         "num_passwords": job.get("num_passwords", 0),
         "num_hashes": job.get("num_hashes", 0),
         "port_alertas": job.get("port_alertas"),
+        "leaked_data": job.get("leaked_data", []),
     }
     jobs.pop(job_id, None)
     return result
