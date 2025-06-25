@@ -14,6 +14,7 @@ export default function EmailForm() {
   const [numHashes, setNumHashes] = useState(0);
   const [portScore, setPortScore] = useState(0);
   const [softScore, setSoftScore] = useState(0);
+  const [leakScore, setLeakScore] = useState(0);
   const [finalScore, setFinalScore] = useState(null);
   const [showCards, setShowCards] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
@@ -44,6 +45,7 @@ export default function EmailForm() {
     setNumHashes(0);
     setPortScore(0);
     setSoftScore(0);
+    setLeakScore(0);
     setFinalScore(null);
     setSelectedDetail(null);
     jobRef.current = null;
@@ -85,6 +87,7 @@ export default function EmailForm() {
         setNumEmails(leakData.num_emails || 0);
         setNumPasswords(leakData.num_passwords || 0);
         setNumHashes(leakData.num_hashes || 0);
+        setLeakScore(leakData.leak_score || 0);
       } catch (e) {}
       setLoadingLeak(false);
     } catch (err) {
@@ -106,6 +109,10 @@ export default function EmailForm() {
         setNumIps(data.num_ips || numIps);
         setSoftAlerts(data.alertas);
         setSoftScore(data.software_score || 0);
+        setLeakScore(data.leak_score || leakScore);
+        setNumEmails(data.num_emails ?? numEmails);
+        setNumPasswords(data.num_passwords ?? numPasswords);
+        setNumHashes(data.num_hashes ?? numHashes);
         setFinalScore(data.final_score ?? null);
         setLoadingSoft(false);
         jobRef.current = null;
@@ -153,6 +160,7 @@ export default function EmailForm() {
         num_ips: numIps,
         port_score: portScore,
         software_score: softScore,
+        leak_score: leakScore,
         num_emails: numEmails,
         num_passwords: numPasswords,
         num_hashes: numHashes,
@@ -278,7 +286,7 @@ export default function EmailForm() {
                 <p className="animate-pulse text-sm">Coletando dados...</p>
               ) : (
                 <>
-                  <p className="text-base">Emails vazados: {numEmails}</p>
+                  <p className="text-base">Score: {leakScore}</p>
                   <button
                     type="button"
                     className="underline text-sm mt-2"

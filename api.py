@@ -15,6 +15,7 @@ from main import (
     salvar_relatorio_json,
 )
 from modules.dehashed import verificar_vazamentos
+from intelligence.scoring import calcular_score_leaks
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -49,8 +50,13 @@ async def leak(req: AnaliseRequest):
         raise HTTPException(status_code=400, detail="Entrada inválida")
     try:
         resultado = await verificar_vazamentos(dominio)
-        await salvar_relatorio_json({"dominio": dominio, **resultado})
-        return resultado
+        leak_score = calcular_score_leaks(
+            resultado.get("num_emails", 0),
+            resultado.get("num_passwords", 0),
+            resultado.get("num_hashes", 0),
+        )
+        await salvar_relatorio_json({"dominio": dominio, **resultado, "leak_score": leak_score})
+        return {**resultado, "leak_score": leak_score}
     except Exception as e:
         traceback.print_exc()
         raise HTTPException(status_code=502, detail="Falha ao consultar DeHashed")

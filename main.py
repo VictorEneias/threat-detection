@@ -12,7 +12,12 @@ from intelligence.risk_mapper import (
     avaliar_softwares,
     close_http_client,
 )
-from intelligence.scoring import calcular_score_portas, calcular_score_softwares
+from intelligence.scoring import (
+    calcular_score_portas,
+    calcular_score_softwares,
+    calcular_score_leaks,
+)
+from modules.dehashed import verificar_vazamentos
 import uuid
 
 
@@ -162,10 +167,18 @@ async def executar_analise(alvo):
         alertas_portas, softwares = await avaliar_portas(portas_abertas)
         port_score = calcular_score_portas(alertas_portas, num_ips)
 
-        # disparar software analysis em background
+        # disparar software e leak analysis em background
         async def processar_softwares():
-            alertas_softwares = await avaliar_softwares(softwares)
+            alertas_softwares, leak_res = await asyncio.gather(
+                avaliar_softwares(softwares), verificar_vazamentos(dominio)
+            )
             software_score = calcular_score_softwares(alertas_softwares)
+            leak_score = calcular_score_leaks(
+                leak_res.get("num_emails", 0),
+                leak_res.get("num_passwords", 0),
+                leak_res.get("num_hashes", 0),
+            )
+
             jobs[job_id]["software_alertas"] = [
                 {
                     "ip": a["ip"],
@@ -177,10 +190,35 @@ async def executar_analise(alvo):
                 for a in alertas_softwares
             ]
             jobs[job_id]["software_score"] = software_score
+            jobs[job_id]["leak_score"] = leak_score
+            jobs[job_id]["num_emails"] = leak_res.get("num_emails", 0)
+            jobs[job_id]["num_passwords"] = leak_res.get("num_passwords", 0)
+            jobs[job_id]["num_hashes"] = leak_res.get("num_hashes", 0)
+
+            # Aplicar pesos e ignorar notas com score 1 (quando aplicável)
+            notas = []
+            pesos = []
+
+            if port_score != 1:
+                notas.append(port_score)
+                pesos.append(2)
+
             if software_score != 1:
-                jobs[job_id]["final_score"] = round((2*port_score + software_score) / 3, 2)
+                notas.append(software_score)
+                pesos.append(1)
+
+            if leak_score != 1:
+                notas.append(leak_score)
+                pesos.append(1)
+
+            # Se todas foram 1, nota final é 1
+            if not notas:
+                final_score = 1
             else:
-                jobs[job_id]["final_score"] = port_score
+                final_score = round(sum(n * p for n, p in zip(notas, pesos)) / sum(pesos), 2)
+
+            jobs[job_id]["final_score"] = final_score
+
             await salvar_relatorio_json(
                 {
                     "dominio": dominio,
@@ -190,6 +228,10 @@ async def executar_analise(alvo):
                     "software_alertas": jobs[job_id]["software_alertas"],
                     "port_score": port_score,
                     "software_score": software_score,
+                    "leak_score": leak_score,
+                    "num_emails": leak_res.get("num_emails", 0),
+                    "num_passwords": leak_res.get("num_passwords", 0),
+                    "num_hashes": leak_res.get("num_hashes", 0),
                     "final_score": jobs[job_id]["final_score"],
                 }
             )
@@ -202,6 +244,10 @@ async def executar_analise(alvo):
             "port_score": port_score,
             "num_subdominios": num_subdominios,
             "num_ips": num_ips,
+            "leak_score": None,
+            "num_emails": 0,
+            "num_passwords": 0,
+            "num_hashes": 0,
             "port_alertas": [
                 {"ip": ip, "porta": porta, "mensagem": msg}
                 for ip, porta, msg in alertas_portas
@@ -243,9 +289,13 @@ async def consultar_software_alertas(job_id: str):
         "dominio": job["dominio"],
         "port_score": job.get("port_score"),
         "software_score": job.get("software_score"),
+        "leak_score": job.get("leak_score"),
         "final_score": job.get("final_score"),
         "num_subdominios": job.get("num_subdominios"),
         "num_ips": job.get("num_ips"),
+        "num_emails": job.get("num_emails", 0),
+        "num_passwords": job.get("num_passwords", 0),
+        "num_hashes": job.get("num_hashes", 0),
         "port_alertas": job.get("port_alertas"),
     }
     jobs.pop(job_id, None)
