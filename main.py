@@ -16,17 +16,19 @@ from intelligence.scoring import calcular_score_portas, calcular_score_softwares
 import uuid
 
 
-def extrair_dominio(email: str) -> str | None:
-    """Extrai o domínio de um endereço de e-mail.
+def extrair_dominio(alvo: str) -> str | None:
+    """Recebe um email ou dominio e retorna o dominio pai.
 
-    Retorna ``None`` se o formato estiver incorreto.
+    Caso ``alvo`` seja um subdomínio ou um endereço de e-mail, o retorno
+    será somente ``dominio.tld``. Retorna ``None`` se não for possível
+    identificar domínio.
     """
-    if '@' not in email:
-        return None
-    dominio_completo = email.split('@')[1]
-    partes = tldextract.extract(dominio_completo)
+    if "@" in alvo:
+        alvo = alvo.split("@", 1)[1]
+
+    partes = tldextract.extract(alvo)
     if not partes.domain or not partes.suffix:
-        return dominio_completo
+        return None
     return f"{partes.domain}.{partes.suffix}"
 
 
@@ -122,7 +124,7 @@ def cancelar_analise_atual() -> bool:
     return cancelled
 
 
-async def executar_analise(email):
+async def executar_analise(alvo):
     """Executa a enumeração e análise, retornando apenas alertas de portas.
     O processamento de softwares continua em background e pode ser
     consultado depois via job_id."""
@@ -132,10 +134,10 @@ async def executar_analise(email):
     current_job_id = None
 
     os.makedirs("data", exist_ok=True)
-    dominio = extrair_dominio(email)
+    dominio = extrair_dominio(alvo)
 
     if not dominio:
-        return {"erro": "E-mail inválido."}
+        return {"erro": "Entrada inválida."}
 
     job_id = str(uuid.uuid4())
 
@@ -175,7 +177,7 @@ async def executar_analise(email):
                 for a in alertas_softwares
             ]
             jobs[job_id]["software_score"] = software_score
-            if software_score != 0:
+            if software_score != 1:
                 jobs[job_id]["final_score"] = round((2*port_score + software_score) / 3, 2)
             else:
                 jobs[job_id]["final_score"] = port_score

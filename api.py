@@ -30,11 +30,11 @@ app.add_middleware(
 )
 
 class AnaliseRequest(BaseModel):
-    email: str
+    alvo: str
 
 @app.post("/api/port-analysis")
 async def iniciar(req: AnaliseRequest):
-    return await executar_analise(req.email)
+    return await executar_analise(req.alvo)
 
 
 @app.get("/api/software-analysis/{job_id}")
@@ -44,9 +44,9 @@ async def resultado(job_id: str):
 
 @app.post("/api/leak-analysis")
 async def leak(req: AnaliseRequest):
-    dominio = extrair_dominio(req.email)
+    dominio = extrair_dominio(req.alvo)
     if not dominio:
-        raise HTTPException(status_code=400, detail="E-mail inválido")
+        raise HTTPException(status_code=400, detail="Entrada inválida")
     try:
         resultado = await verificar_vazamentos(dominio)
         await salvar_relatorio_json({"dominio": dominio, **resultado})

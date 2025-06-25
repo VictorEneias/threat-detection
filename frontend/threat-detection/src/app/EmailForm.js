@@ -3,7 +3,7 @@ import { useState, useRef } from 'react';
 import ScoreGauge from './ScoreGauge';
 
 export default function EmailForm() {
-  const [email, setEmail] = useState('');
+  const [alvo, setAlvo] = useState('');
   const [loadingPort, setLoadingPort] = useState(false);
   const [loadingSoft, setLoadingSoft] = useState(false);
   const [loadingLeak, setLoadingLeak] = useState(false);
@@ -52,14 +52,14 @@ export default function EmailForm() {
       const leakFetch = fetch('/api/leak-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ alvo }),
         signal: abortRef.current.signal
       });
 
       const res = await fetch('/api/port-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ alvo }),
         signal: abortRef.current.signal
       });
 
@@ -193,10 +193,10 @@ export default function EmailForm() {
         className="bg-[#1a1a1a] p-6 rounded-2xl shadow-lg flex flex-col md:flex-row gap-4 w-full max-w-xl text-white border border-[#ec008c]"
       >
         <input
-          type="email"
-          placeholder="usuario@empresa.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+           type="text"
+          placeholder="empresa.com ou usuario@empresa.com"
+          value={alvo}
+          onChange={(e) => setAlvo(e.target.value)}
           className="flex-1 p-3 rounded bg-white text-black outline-none"
           required
         />
