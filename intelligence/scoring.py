@@ -3,16 +3,23 @@ import math
 
 ALERT_WEIGHTS = {
     "Telnet": 5,
-    "RDP": 4.5,
-    "SMB": 4.5,
-    "MySQL": 4,
-    "PostgreSQL": 3.5,
-    "SQL Server": 4,
-    "FTP aberto": 4.5,
-    "SSH acessível": 3,
+    "RDP": 5,
+    "SMB": 5,
+    "MySQL": 4.5,
+    "PostgreSQL": 4.5,
+    "SQL Server": 4.5,
+    "FTP aberto": 3.5,
+    "SSH acessível": 5,
     "SMTP aberto": 3.5,
-    "HTTP sem HTTPS": 2.5,
-    "HTTP exposto": 2,
+    "HTTP sem HTTPS": 3.5,
+    "HTTP exposto": 2.5,
+}
+
+# Pesos para vazamentos de dados
+LEAK_WEIGHTS = {
+    "emails": 1,
+    "passwords": 5,
+    "hashes": 3,
 }
 
 ADJUST_K = 4
@@ -49,5 +56,21 @@ def calcular_score_softwares(alertas, k: int = ADJUST_K):
         return 1.0
     risco_total = sum(cvss_vals)
     fator = _fator_ajuste(len(cvss_vals), k)
+    score = _formula(risco_total, fator)
+    return round(score, 2)
+
+
+def calcular_score_leaks(num_emails: int, num_passwords: int, num_hashes: int,
+                         k: int = ADJUST_K) -> float:
+    """Calcula score baseado na quantidade de vazamentos."""
+    total = num_emails + num_passwords + num_hashes
+    if total <= 0:
+        return 1.0
+    risco_total = (
+        num_emails * LEAK_WEIGHTS["emails"]
+        + num_passwords * LEAK_WEIGHTS["passwords"]
+        + num_hashes * LEAK_WEIGHTS["hashes"]
+    )
+    fator = _fator_ajuste(total, k)
     score = _formula(risco_total, fator)
     return round(score, 2)
