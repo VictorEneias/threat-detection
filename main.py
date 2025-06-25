@@ -129,7 +129,7 @@ def cancelar_analise_atual() -> bool:
     return cancelled
 
 
-async def executar_analise(alvo):
+async def executar_analise(alvo, leak_analysis: bool = True):
     """Executa a enumeração e análise, retornando apenas alertas de portas.
     O processamento de softwares continua em background e pode ser
     consultado depois via job_id."""
@@ -169,9 +169,13 @@ async def executar_analise(alvo):
 
         # disparar software e leak analysis em background
         async def processar_softwares():
-            alertas_softwares, leak_res = await asyncio.gather(
-                avaliar_softwares(softwares), verificar_vazamentos(dominio)
-            )
+            if leak_analysis:
+                alertas_softwares, leak_res = await asyncio.gather(
+                    avaliar_softwares(softwares), verificar_vazamentos(dominio)
+                )
+            else:
+                alertas_softwares = await avaliar_softwares(softwares)
+                leak_res = {"num_emails": 0, "num_passwords": 0, "num_hashes": 0}
             software_score = calcular_score_softwares(alertas_softwares)
             leak_score = calcular_score_leaks(
                 leak_res.get("num_emails", 0),
