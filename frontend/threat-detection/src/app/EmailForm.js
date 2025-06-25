@@ -207,16 +207,36 @@ export default function EmailForm() {
         onSubmit={handleSubmit}
         className="bg-[#1a1a1a] p-6 rounded-2xl shadow-lg flex flex-col md:flex-row gap-4 w-full max-w-xl text-white border border-[#ec008c]"
       >
-        <input
-           type="text"
-          placeholder="empresa.com ou usuario@empresa.com"
-          value={alvo}
-          onChange={(e) => setAlvo(e.target.value)}
-          className="flex-1 p-3 rounded bg-white text-black outline-none"
-          required
-        />
-        <div className="flex flex-col md:flex-row gap-2 items-center">
-          <div className="flex items-center gap-2 mr-2">
+        <div className="flex flex-col flex-1">
+          <input
+            type="text"
+            placeholder="empresa.com ou usuario@empresa.com"
+            value={alvo}
+            onChange={(e) => setAlvo(e.target.value)}
+            className="p-3 rounded bg-white text-black outline-none"
+            required
+          />
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="bg-[#ec008c] hover:bg-pink-600 text-white px-4 py-2 rounded font-semibold"
+              disabled={loadingPort || loadingSoft}
+            >
+              {loadingPort ? 'Analisando...' : 'Analisar'}
+            </button>
+            {(loadingPort || loadingSoft) && (
+              <button
+                type="button"
+                className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded font-semibold"
+                onClick={cancelJob}
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
             <span className="text-sm">Data Leak</span>
             <button
               type="button"
@@ -230,22 +250,6 @@ export default function EmailForm() {
               />
             </button>
           </div>
-          <button
-            type="submit"
-            className="bg-[#ec008c] hover:bg-pink-600 text-white px-4 py-2 rounded font-semibold"
-            disabled={loadingPort || loadingSoft}
-          >
-            {loadingPort ? 'Analisando...' : 'Analisar'}
-          </button>
-          {(loadingPort || loadingSoft) && (
-            <button
-              type="button"
-              className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded font-semibold"
-              onClick={cancelJob}
-            >
-              Cancelar
-            </button>
-          )}
         </div>
       </form>
 
