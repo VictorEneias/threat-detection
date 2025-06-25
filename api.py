@@ -71,6 +71,21 @@ async def cancelar(job_id: str):
         return {"status": "cancelado"}
     raise HTTPException(status_code=404, detail="Job n\u00e3o encontrado")
 
+@app.get("/api/report")
+async def obter_relatorio(alvo: str):
+    """Retorna um relatorio especifico, se existir."""
+    dominio = extrair_dominio(alvo)
+    if not dominio:
+        raise HTTPException(status_code=400, detail="Entrada inválida")
+    path = os.path.join("relatorios.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    async with aiofiles.open(path, "r") as f:
+        content = await f.read()
+        dados = json.loads(content) if content else {}
+    if dominio not in dados:
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    return dados[dominio]
 
 @app.post("/api/cancel-current")
 async def cancelar_atual():
