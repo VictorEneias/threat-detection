@@ -1,6 +1,5 @@
 import os
 import json
-import aiofiles
 import httpx
 
 DEHASHED_API_KEY = os.getenv("DEHASHED_API_KEY", "")
@@ -51,14 +50,26 @@ def _contar_vazamentos(data: dict) -> tuple[int, int, int]:
 async def verificar_vazamentos(dominio: str) -> dict:
     query = f"domain:{dominio}"
     resposta = await search_dehashed(query)
-    print("ATE AQUI FOI")
-    os.makedirs("vazamentos", exist_ok=True)
-    path = os.path.join("vazamentos", f"vazamentos_{dominio}.json")
-    async with aiofiles.open(path, "w", encoding="utf-8") as f:
-        await f.write(json.dumps(resposta, indent=4, ensure_ascii=False))
+
     n_emails, n_senhas, n_hashes = _contar_vazamentos(resposta)
+
+    credenciais = []
+    for entry in resposta.get("entries", []):
+        email = entry.get("email") or ""
+        senha_texto = entry.get("password") or ""
+        senha_hash = entry.get("hashed_password") or ""
+        if email or senha_texto or senha_hash:
+            credenciais.append(
+                {
+                    "email": email,
+                    "password": senha_texto,
+                    "hash": senha_hash,
+                }
+            )
+
     return {
         "num_emails": n_emails,
         "num_passwords": n_senhas,
         "num_hashes": n_hashes,
+        "leaked_data": credenciais,
     }
