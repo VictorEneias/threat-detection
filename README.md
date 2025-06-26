@@ -62,6 +62,7 @@ curl -fsSL https://pgp.mongodb.com/server-7.0.asc | sudo gpg --dearmor -o /usr/s
 echo "deb [ arch=amd64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/debian bookworm/mongodb-org/7.0 main" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
 sudo apt update
 sudo apt install -y mongodb-org
+sudo systemctl start mongod
 ```
 
 ### 7. Clonar e configurar o projeto
@@ -102,6 +103,15 @@ cd frontend/threat-detection
 npm install
 ```
 
+### 11. Criar usuário administrador
+
+Com o MongoDB em execução, utilize o script abaixo para cadastrar o primeiro
+usuário admin:
+
+```bash
+python create_admin.py
+```
+
 ## Como executar
 
 Em um terminal, inicie o backend:
@@ -129,8 +139,9 @@ Algumas configurações podem ser ajustadas antes de iniciar o backend e o front
 - `FRONTEND_URL`: origem permitida pelo CORS (padrão: `http://localhost:3000`)
 - `DEHASHED_API_KEY`: chave para consultar a API do DeHashed
 - `NEXT_PUBLIC_APP_PASSWORD`: senha exigida na tela inicial do frontend (padrão: `senha`)
-- `NEXT_PUBLIC_ADMIN_USER`: usuário do painel admin (padrão: `admin`)
-- `NEXT_PUBLIC_ADMIN_PASS`: senha do painel admin (padrão: `1234`)
+As variáveis `NEXT_PUBLIC_ADMIN_USER` e `NEXT_PUBLIC_ADMIN_PASS` não são mais
+obrigatórias: o login do painel agora é realizado contra a coleção `admins` do
+banco MongoDB.
 
 O servidor de desenvolvimento do Next.js roda apenas em HTTP. Caso deseje disponibilizar o frontend em HTTPS, utilize um proxy reverso (por exemplo, nginx) para fornecer o certificado TLS.
 
