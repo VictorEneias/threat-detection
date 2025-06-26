@@ -5,3 +5,5 @@ tldextract
 motor
 httpx
 aiofiles
+
+bcrypt
