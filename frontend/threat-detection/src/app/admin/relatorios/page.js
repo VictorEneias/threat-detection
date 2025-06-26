@@ -121,7 +121,7 @@ export default function RelatoriosPage() {
   return (
     <main className="min-h-screen flex flex-col items-center bg-black text-white p-4 gap-4">
       <h1 className="text-2xl font-bold">Relatórios</h1>
-      <button onClick={() => router.push('/admin')} className="bg-gray-700 px-3 py-1 rounded">
+      <button onClick={() => router.push('/admin')} className="bg-gray-700 px-3 py-1 rounded hover:bg-gray-600">
         Voltar
       </button>
       <div className="w-full max-w-5xl flex flex-col gap-4">
