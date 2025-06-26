@@ -38,9 +38,14 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center bg-black text-white gap-2">
-      <header className="w-full bg-[#ec008c] py-4 text-center">
-        <h1 className="font-bold text-lg md:text-2xl uppercase">ANÁLISE DE SEGURANÇA CORPORATIVA</h1>
+    <main className="min-h-screen flex flex-col items-center text-white gap-2 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/BGSITE.png')" }}>
+      <header className="w-full bg-white py-4 px-6 flex items-center justify-between shadow-md">
+        <div className="flex items-center gap-3">
+          <img src="/crLogoNG.png" alt="Logo NGSX" className="w-32 md:w-40 object-contain" />
+        </div>
+        <p className="hidden md:block text-black font-bold text-sm tracking-wider uppercase">
+          Análise de Segurança Corporativa
+        </p>
       </header>
       <div className="flex-1 flex items-center justify-center w-full px-4">
         <EmailForm />
