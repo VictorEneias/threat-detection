@@ -63,20 +63,20 @@ function ReportCard({ dominio, info, onDelete }) {
           {info.leaked_data && info.leaked_data.length > 0 && (
             <div className="mt-2">
               <p className="font-semibold mb-1">Dados Vazados:</p>
-              <table className="w-full text-xs border-collapse">
+              <table className="w-full table-fixed text-xs border-collapse">
                 <thead>
                   <tr>
-                    <th className="border px-1">Email</th>
-                    <th className="border px-1">Senha texto</th>
-                    <th className="border px-1">Senha hash</th>
+                    <th className="border px-2 w-1/4">Email</th>
+                    <th className="border px-2 w-1/4">Senha texto</th>
+                    <th className="border px-2 w-2/4">Senha hash</th>
                   </tr>
                 </thead>
                 <tbody>
                   {info.leaked_data.map((row, idx) => (
                     <tr key={idx}>
-                      <td className="border px-1 break-all">{row.email}</td>
-                      <td className="border px-1 break-all">{row.password}</td>
-                      <td className="border px-1 break-all">{row.hash}</td>
+                      <td className="border px-2 w-2/8 break-all">{row.email}</td>
+                      <td className="border px-2 w-1/8 break-all">{row.password}</td>
+                      <td className="border px-2 w-5/8 break-all">{row.hash}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -124,7 +124,7 @@ export default function RelatoriosPage() {
       <button onClick={() => router.push('/admin')} className="bg-gray-700 px-3 py-1 rounded">
         Voltar
       </button>
-      <div className="w-full max-w-3xl flex flex-col gap-4">
+      <div className="w-full max-w-5xl flex flex-col gap-4">
         {keys.length === 0 && <p className="text-center">Nenhum relatório disponível.</p>}
         {keys.map((dom) => (
           <ReportCard
