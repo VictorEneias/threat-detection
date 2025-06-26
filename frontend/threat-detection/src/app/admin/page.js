@@ -4,13 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCookie, setCookie, deleteCookie } from 'cookies-next';
 
-// Usuário e senha do admin definidos por variáveis de ambiente
-const ADMIN_USER = process.env.NEXT_PUBLIC_ADMIN_USER || 'admin';
-const ADMIN_PASS = process.env.NEXT_PUBLIC_ADMIN_PASS || '1234';
-const USERS = [
-  { username: ADMIN_USER, password: ADMIN_PASS },
-];
-
 export default function AdminPage() {
   const router = useRouter();
   const [loggedIn, setLoggedIn] = useState(false);
@@ -18,19 +11,22 @@ export default function AdminPage() {
   const [pass, setPass] = useState('');
 
   useEffect(() => {
-    const isAdmin = getCookie('isAdmin');
-    if (isAdmin === 'true') {
+    const token = getCookie('adminToken');
+    if (token) {
       setLoggedIn(true);
     }
   }, []);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const found = USERS.find(
-      (u) => u.username === user && u.password === pass
-    );
-    if (found) {
-      setCookie('isAdmin', 'true');
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setCookie('adminToken', data.token);
       setLoggedIn(true);
     } else {
       alert('Credenciais inválidas');
@@ -38,7 +34,7 @@ export default function AdminPage() {
   };
 
   const handleLogout = () => {
-    deleteCookie('isAdmin', { path: '/' });
+    deleteCookie('adminToken', { path: '/' });
     setLoggedIn(false);             // <- atualiza o estado
     setUser('');         // <-- limpa o campo usuário
     setPass(''); 

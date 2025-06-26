@@ -16,6 +16,7 @@ from main import (
 )
 from modules.dehashed import verificar_vazamentos
 from intelligence.scoring import calcular_score_leaks
+from modules.admin_auth import verify_admin, create_admin, admins
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -33,6 +34,16 @@ app.add_middleware(
 class AnaliseRequest(BaseModel):
     alvo: str
     leak_analysis: bool = True
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
 
 @app.post("/api/port-analysis")
 async def iniciar(req: AnaliseRequest):
@@ -176,3 +187,20 @@ async def remover_chamado(chamado_id: str):
                 await f.write(json.dumps(dados, indent=2))
             return {"status": "ok"}
     raise HTTPException(status_code=404, detail="Chamado n\u00e3o encontrado")
+
+
+# ======================== AUTENTICAÇÃO ADMIN ========================
+
+@app.post("/api/login")
+async def login(req: LoginRequest):
+    if await verify_admin(req.username, req.password):
+        return {"token": str(uuid.uuid4())}
+    raise HTTPException(status_code=401, detail="Credenciais inválidas")
+
+
+@app.post("/api/register")
+async def register(req: RegisterRequest):
+    if await admins.find_one({"username": req.username}):
+        raise HTTPException(status_code=400, detail="Usuário já existe")
+    await create_admin(req.username, req.password)
+    return {"status": "ok"}
