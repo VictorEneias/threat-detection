@@ -1,7 +1,5 @@
 import os
-import json
 import traceback
-import aiofiles
 import uuid
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
@@ -16,7 +14,11 @@ from main import (
 )
 from modules.dehashed import verificar_vazamentos
 from intelligence.scoring import calcular_score_leaks
-from modules.admin_auth import verify_admin, create_admin, admins
+from modules.admin_auth import verify_admin, create_admin
+from database import AsyncSessionLocal
+from models import Report, Chamado
+from sqlalchemy.future import select
+from sqlalchemy.exc import IntegrityError
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -88,15 +90,26 @@ async def obter_relatorio(alvo: str):
     dominio = extrair_dominio(alvo)
     if not dominio:
         raise HTTPException(status_code=400, detail="Entrada inválida")
-    path = os.path.join("relatorios.json")
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="Relatório não encontrado")
-    async with aiofiles.open(path, "r") as f:
-        content = await f.read()
-        dados = json.loads(content) if content else {}
-    if dominio not in dados:
-        raise HTTPException(status_code=404, detail="Relatório não encontrado")
-    return dados[dominio]
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Report).where(Report.dominio == dominio))
+        r = result.scalars().first()
+        if not r:
+            raise HTTPException(status_code=404, detail="Relatório não encontrado")
+        return {
+            "dominio": r.dominio,
+            "num_subdominios": r.num_subdominios,
+            "num_ips": r.num_ips,
+            "port_alertas": r.port_alertas,
+            "software_alertas": r.software_alertas,
+            "port_score": r.port_score,
+            "software_score": r.software_score,
+            "leak_score": r.leak_score,
+            "num_emails": r.num_emails,
+            "num_passwords": r.num_passwords,
+            "num_hashes": r.num_hashes,
+            "leaked_data": r.leaked_data,
+            "final_score": r.final_score,
+        }
 
 @app.post("/api/cancel-current")
 async def cancelar_atual():
@@ -106,33 +119,40 @@ async def cancelar_atual():
 
 @app.get("/api/reports")
 async def listar_relatorios():
-    path = os.path.join("relatorios.json")
-    if not os.path.exists(path):
-        return {}
-    async with aiofiles.open(path, "r") as f:
-        content = await f.read()
-    try:
-        return json.loads(content) if content else {}
-    except Exception:
-        return {}
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Report))
+        reports = result.scalars().all()
+        retorno = {}
+        for r in reports:
+            retorno[r.dominio] = {
+                "dominio": r.dominio,
+                "num_subdominios": r.num_subdominios,
+                "num_ips": r.num_ips,
+                "port_alertas": r.port_alertas,
+                "software_alertas": r.software_alertas,
+                "port_score": r.port_score,
+                "software_score": r.software_score,
+                "leak_score": r.leak_score,
+                "num_emails": r.num_emails,
+                "num_passwords": r.num_passwords,
+                "num_hashes": r.num_hashes,
+                "leaked_data": r.leaked_data,
+                "final_score": r.final_score,
+            }
+        return retorno
 
 @app.delete("/api/reports/{dominio}")
 async def remover_relatorio(dominio: str):
-    """Remove um relatório do arquivo ``relatorios.json``."""
-    path = os.path.join("relatorios.json")
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="Relatório não encontrado")
-    async with aiofiles.open(path, "r") as f:
-        content = await f.read()
-        dados = json.loads(content) if content else {}
-    if dominio not in dados:
-        raise HTTPException(status_code=404, detail="Relatório não encontrado")
-    dados.pop(dominio)
-    async with aiofiles.open(path, "w") as f:
-        await f.write(json.dumps(dados, indent=2))
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Report).where(Report.dominio == dominio))
+        r = result.scalars().first()
+        if not r:
+            raise HTTPException(status_code=404, detail="Relatório não encontrado")
+        await session.delete(r)
+        await session.commit()
     return {"status": "ok"}
 
-class Chamado(BaseModel):
+class ChamadoSchema(BaseModel):
     nome: str
     empresa: str
     cargo: str
@@ -142,51 +162,70 @@ class Chamado(BaseModel):
 
 
 @app.post("/api/chamados")
-async def criar_chamado(ch: Chamado):
-    path = os.path.join("chamados.json")
-    try:
-        async with aiofiles.open(path, "r") as f:
-            content = await f.read()
-            dados = json.loads(content) if content else []
-    except FileNotFoundError:
-        dados = []
-    chamado = ch.dict()
-    chamado["id"] = str(uuid.uuid4())
-    chamado["timestamp"] = datetime.utcnow().isoformat()
-    dados.append(chamado)
-    async with aiofiles.open(path, "w") as f:
-        await f.write(json.dumps(dados, indent=2))
+async def criar_chamado(ch: ChamadoSchema):
+    dominio = ch.relatorio.get("dominio")
+    if not dominio:
+        raise HTTPException(status_code=400, detail="Relatório inválido")
+    await salvar_relatorio_json(ch.relatorio)
+    async with AsyncSessionLocal() as session:
+        novo = Chamado(
+            nome=ch.nome,
+            empresa=ch.empresa,
+            cargo=ch.cargo,
+            telefone=ch.telefone,
+            mensagem=ch.mensagem,
+            dominio=dominio,
+            timestamp=datetime.utcnow(),
+        )
+        session.add(novo)
+        await session.commit()
     return {"status": "ok"}
 
 
 @app.get("/api/chamados")
 async def listar_chamados():
-    path = os.path.join("chamados.json")
-    if not os.path.exists(path):
-        return []
-    async with aiofiles.open(path, "r") as f:
-        content = await f.read()
-    try:
-        return json.loads(content) if content else []
-    except Exception:
-        return []
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Chamado))
+        chamados = result.scalars().all()
+        retorno = []
+        for c in chamados:
+            report_res = await session.execute(select(Report).where(Report.dominio == c.dominio))
+            r = report_res.scalars().first()
+            retorno.append({
+                "id": c.id,
+                "nome": c.nome,
+                "empresa": c.empresa,
+                "cargo": c.cargo,
+                "telefone": c.telefone,
+                "mensagem": c.mensagem,
+                "timestamp": c.timestamp.isoformat(),
+                "relatorio": {
+                    "dominio": r.dominio if r else c.dominio,
+                    "num_subdominios": r.num_subdominios if r else None,
+                    "num_ips": r.num_ips if r else None,
+                    "port_score": r.port_score if r else None,
+                    "software_score": r.software_score if r else None,
+                    "leak_score": r.leak_score if r else None,
+                    "num_emails": r.num_emails if r else None,
+                    "num_passwords": r.num_passwords if r else None,
+                    "num_hashes": r.num_hashes if r else None,
+                    "final_score": r.final_score if r else None,
+                    "port_alertas": r.port_alertas if r else None,
+                    "software_alertas": r.software_alertas if r else None,
+                },
+            })
+        return retorno
 
 @app.delete("/api/chamados/{chamado_id}")
 async def remover_chamado(chamado_id: str):
-    """Remove um chamado do arquivo ``chamados.json``."""
-    path = os.path.join("chamados.json")
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="Chamado n\u00e3o encontrado")
-    async with aiofiles.open(path, "r") as f:
-        content = await f.read()
-        dados = json.loads(content) if content else []
-    for i, c in enumerate(dados):
-        if c.get("id") == chamado_id:
-            dados.pop(i)
-            async with aiofiles.open(path, "w") as f:
-                await f.write(json.dumps(dados, indent=2))
-            return {"status": "ok"}
-    raise HTTPException(status_code=404, detail="Chamado n\u00e3o encontrado")
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Chamado).where(Chamado.id == int(chamado_id)))
+        chamado = result.scalars().first()
+        if not chamado:
+            raise HTTPException(status_code=404, detail="Chamado n\u00e3o encontrado")
+        await session.delete(chamado)
+        await session.commit()
+    return {"status": "ok"}
 
 
 # ======================== AUTENTICAÇÃO ADMIN ========================
@@ -200,7 +239,8 @@ async def login(req: LoginRequest):
 
 @app.post("/api/register")
 async def register(req: RegisterRequest):
-    if await admins.find_one({"username": req.username}):
+    try:
+        await create_admin(req.username, req.password)
+    except IntegrityError:
         raise HTTPException(status_code=400, detail="Usuário já existe")
-    await create_admin(req.username, req.password)
     return {"status": "ok"}
