@@ -13,7 +13,6 @@ from main import (
     cancelar_analise_atual,
     extrair_dominio,
     salvar_relatorio_json,
-    _relatorios_cache,
 )
 from modules.dehashed import verificar_vazamentos
 from intelligence.scoring import calcular_score_leaks
@@ -21,24 +20,6 @@ from modules.admin_auth import verify_admin, create_admin, admins
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
-
-async def _load_relatorios() -> dict:
-    """Carrega e retorna relatorios do disco uma única vez."""
-    global _relatorios_cache
-    if _relatorios_cache is not None:
-        return _relatorios_cache
-    path = os.path.join("relatorios.json")
-    if not os.path.exists(path):
-        _relatorios_cache = {}
-        return _relatorios_cache
-    async with aiofiles.open(path, "r") as f:
-        content = await f.read()
-    try:
-        _relatorios_cache = json.loads(content) if content else {}
-    except Exception:
-        _relatorios_cache = {}
-    return _relatorios_cache
-
 
 ALLOWED_ORIGIN = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
@@ -107,7 +88,12 @@ async def obter_relatorio(alvo: str):
     dominio = extrair_dominio(alvo)
     if not dominio:
         raise HTTPException(status_code=400, detail="Entrada inválida")
-    dados = await _load_relatorios()
+    path = os.path.join("relatorios.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    async with aiofiles.open(path, "r") as f:
+        content = await f.read()
+        dados = json.loads(content) if content else {}
     if dominio not in dados:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
     return dados[dominio]
@@ -120,23 +106,28 @@ async def cancelar_atual():
 
 @app.get("/api/reports")
 async def listar_relatorios():
-    return await _load_relatorios()
+    path = os.path.join("relatorios.json")
+    if not os.path.exists(path):
+        return {}
+    async with aiofiles.open(path, "r") as f:
+        content = await f.read()
+    try:
+        return json.loads(content) if content else {}
+    except Exception:
+        return {}
 
 @app.delete("/api/reports/{dominio}")
 async def remover_relatorio(dominio: str):
     """Remove um relatório do arquivo ``relatorios.json``."""
-    dados = await _load_relatorios()
     path = os.path.join("relatorios.json")
-    if not dados:
-        if not os.path.exists(path):
-            raise HTTPException(status_code=404, detail="Relatório não encontrado")
-        # dados already loaded from file above, but check again
-    
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="Relatório não encontrado")
+    async with aiofiles.open(path, "r") as f:
+        content = await f.read()
+        dados = json.loads(content) if content else {}
     if dominio not in dados:
         raise HTTPException(status_code=404, detail="Relatório não encontrado")
     dados.pop(dominio)
-    global _relatorios_cache
-    _relatorios_cache = dados
     async with aiofiles.open(path, "w") as f:
         await f.write(json.dumps(dados, indent=2))
     return {"status": "ok"}
