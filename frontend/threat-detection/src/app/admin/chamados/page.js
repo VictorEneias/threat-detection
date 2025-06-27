@@ -4,13 +4,25 @@ import { useRouter } from 'next/navigation';
 
 function ChamadoCard({ chamado, onDelete }) {
   const [open, setOpen] = useState(false);
-  const r = chamado.relatorio || {};
+  const [details, setDetails] = useState(null);
+
+  const toggle = async () => {
+    if (!open && !details) {
+      const res = await fetch(`/api/chamados/${chamado.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDetails(data);
+      }
+    }
+    setOpen(!open);
+  };
+  const r = details ? details.relatorio : {};
   return (
     <div className="bg-[#1a1a1a] p-4 rounded border-l-4 border-[#ec008c]">
       <div className="flex justify-between items-center">
         <h2 className="font-semibold">{chamado.nome} - {chamado.empresa}</h2>
         <div className="flex gap-2">
-          <button onClick={() => setOpen(!open)} className="underline">
+          <button onClick={toggle} className="underline">
             {open ? 'Fechar' : 'Ler mais'}
           </button>
           <button
@@ -21,11 +33,11 @@ function ChamadoCard({ chamado, onDelete }) {
           </button>
         </div>
       </div>
-      {open && (
+      {open && details && (
         <div className="mt-2 text-sm space-y-1">
-          <p>Cargo: {chamado.cargo}</p>
-          <p>Telefone: {chamado.telefone}</p>
-          <p>Mensagem: {chamado.mensagem}</p>
+          <p>Cargo: {details.cargo}</p>
+          <p>Telefone: {details.telefone}</p>
+          <p>Mensagem: {details.mensagem}</p>
           <div className="mt-2">
             <p className="font-semibold">Relatório:</p>
             <p>Domínio: {r.dominio}</p>
@@ -51,7 +63,7 @@ export default function ChamadosPage() {
 
   useEffect(() => {
     const fetchChamados = async () => {
-      const res = await fetch('/api/chamados');
+      const res = await fetch('/api/chamados/summary');
       const data = await res.json();
       setChamados(data);
     };
