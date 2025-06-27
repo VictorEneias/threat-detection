@@ -38,7 +38,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center text-white gap-2 bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/BGSITE.png')" }}>
+    <main className="min-h-screen flex flex-col items-center text-white gap-2 bg-fixed bg-cover bg-center bg-no-repeat" style={{ backgroundImage: "url('/BGSITE.png')" }}>
       <header className="w-full bg-white py-4 px-6 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-3">
           <img src="/crLogoNG.png" alt="Logo NGSX" className="w-32 md:w-40 object-contain" />
