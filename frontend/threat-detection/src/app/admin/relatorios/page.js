@@ -3,14 +3,26 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-function ReportCard({ dominio, info, onDelete }) {
+function ReportCard({ dominio, onDelete }) {
   const [open, setOpen] = useState(false);
+  const [info, setInfo] = useState(null);
+
+  const toggle = async () => {
+    if (!open && !info) {
+      const res = await fetch(`/api/reports/${dominio}`);
+      if (res.ok) {
+        const data = await res.json();
+        setInfo(data);
+      }
+    }
+    setOpen(!open);
+  };
   return (
     <div className="bg-[#1a1a1a] p-4 rounded border-l-4 border-[#ec008c]">
       <div className="flex justify-between items-center">
         <h2 className="font-semibold">{dominio}</h2>
         <div className="flex gap-2">
-          <button onClick={() => setOpen(!open)} className="underline">
+          <button onClick={toggle} className="underline">
             {open ? 'Fechar' : 'Ler mais'}
           </button>
           <button
@@ -21,7 +33,7 @@ function ReportCard({ dominio, info, onDelete }) {
           </button>
         </div>
       </div>
-      {open && (
+      {open && info && (
         <div className="mt-2 text-sm">
           <p>Subdomínios: {info.num_subdominios}</p>
           <p>IPs únicos: {info.num_ips}</p>
@@ -90,18 +102,14 @@ function ReportCard({ dominio, info, onDelete }) {
 }
 
 export default function RelatoriosPage() {
-  const [reports, setReports] = useState({});
+  const [reports, setReports] = useState([]);
   const router = useRouter();
 
   const handleDelete = async (dom) => {
     if (!confirm(`Excluir relatorio de ${dom}?`)) return;
     const res = await fetch(`/api/reports/${dom}`, { method: 'DELETE' });
     if (res.ok) {
-      setReports((prev) => {
-        const copy = { ...prev };
-        delete copy[dom];
-        return copy;
-      });
+      setReports((prev) => prev.filter((d) => d !== dom));
     } else {
       alert('Falha ao excluir relatório');
     }
@@ -109,14 +117,13 @@ export default function RelatoriosPage() {
 
   useEffect(() => {
     const fetchReports = async () => {
-      const res = await fetch('/api/reports');
+      const res = await fetch('/api/reports/summary');
       const data = await res.json();
       setReports(data);
     };
     fetchReports();
   }, []);
 
-  const keys = Object.keys(reports);
 
   return (
     <main className="min-h-screen flex flex-col items-center bg-black text-white p-4 gap-4">
@@ -125,14 +132,9 @@ export default function RelatoriosPage() {
         Voltar
       </button>
       <div className="w-full max-w-5xl flex flex-col gap-4">
-        {keys.length === 0 && <p className="text-center">Nenhum relatório disponível.</p>}
-        {keys.map((dom) => (
-          <ReportCard
-            key={dom}
-            dominio={dom}
-            info={reports[dom]}
-            onDelete={handleDelete}
-          />
+        {reports.length === 0 && <p className="text-center">Nenhum relatório disponível.</p>}
+        {reports.map((dom) => (
+          <ReportCard key={dom} dominio={dom} onDelete={handleDelete} />
         ))}
       </div>
     </main>
