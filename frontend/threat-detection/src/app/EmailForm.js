@@ -88,15 +88,6 @@ export default function EmailForm() {
     jobRef.current = null;
 
     try {
-      const leakFetch = performLeak
-        ? fetch('/api/leak-analysis', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ alvo, leak_analysis: performLeak }),
-            signal: abortRef.current.signal,
-          })
-        : null;
-
       const res = await fetch('/api/port-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,22 +108,8 @@ export default function EmailForm() {
       setPortAlerts(data.alertas || []);
       setPortScore(data.port_score || 0);
       setLoadingPort(false);
-      jobRef.current = data.job_id;
-      pollSoftware(data.job_id);
-
-      if (performLeak && leakFetch) {
-        try {
-          const lr = await leakFetch;
-          const leakData = await lr.json();
-          setNumEmails(leakData.num_emails || 0);
-          setNumPasswords(leakData.num_passwords || 0);
-          setNumHashes(leakData.num_hashes || 0);
-          setLeakScore(leakData.leak_score || 0);
-        } catch (e) {}
-      } else {
-        setLeakScore(0);
-      }
-      setLoadingLeak(false);
+    jobRef.current = data.job_id;
+    pollSoftware(data.job_id);
     } catch (err) {
       if (err.name !== 'AbortError') alert('Erro ao conectar ao backend');
       setLoadingPort(false);
@@ -158,6 +135,7 @@ export default function EmailForm() {
         setNumHashes(data.num_hashes ?? numHashes);
         setFinalScore(data.final_score ?? null);
         setLoadingSoft(false);
+        setLoadingLeak(false);
         jobRef.current = null;
       } else {
         setTimeout(() => pollSoftware(id), 2000);
