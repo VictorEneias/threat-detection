@@ -141,6 +141,36 @@ async def listar_relatorios():
             }
         return retorno
 
+@app.get("/api/reports/summary")
+async def listar_relatorios_summary():
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Report.dominio))
+        doms = result.scalars().all()
+        return doms
+
+@app.get("/api/reports/{dominio}")
+async def obter_relatorio(dominio: str):
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Report).where(Report.dominio == dominio))
+        r = result.scalars().first()
+        if not r:
+            raise HTTPException(status_code=404, detail="Relatório não encontrado")
+        return {
+            "dominio": r.dominio,
+            "num_subdominios": r.num_subdominios,
+            "num_ips": r.num_ips,
+            "port_alertas": r.port_alertas,
+            "software_alertas": r.software_alertas,
+            "port_score": r.port_score,
+            "software_score": r.software_score,
+            "leak_score": r.leak_score,
+            "num_emails": r.num_emails,
+            "num_passwords": r.num_passwords,
+            "num_hashes": r.num_hashes,
+            "leaked_data": r.leaked_data,
+            "final_score": r.final_score,
+        }
+
 @app.delete("/api/reports/{dominio}")
 async def remover_relatorio(dominio: str):
     async with AsyncSessionLocal() as session:
@@ -215,6 +245,54 @@ async def listar_chamados():
                 },
             })
         return retorno
+
+@app.get("/api/chamados/summary")
+async def listar_chamados_summary():
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Chamado))
+        chamados = result.scalars().all()
+        retorno = []
+        for c in chamados:
+            retorno.append({
+                "id": c.id,
+                "nome": c.nome,
+                "empresa": c.empresa,
+                "timestamp": c.timestamp.isoformat(),
+            })
+        return retorno
+
+@app.get("/api/chamados/{chamado_id}")
+async def obter_chamado(chamado_id: str):
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Chamado).where(Chamado.id == int(chamado_id)))
+        c = result.scalars().first()
+        if not c:
+            raise HTTPException(status_code=404, detail="Chamado não encontrado")
+        report_res = await session.execute(select(Report).where(Report.dominio == c.dominio))
+        r = report_res.scalars().first()
+        return {
+            "id": c.id,
+            "nome": c.nome,
+            "empresa": c.empresa,
+            "cargo": c.cargo,
+            "telefone": c.telefone,
+            "mensagem": c.mensagem,
+            "timestamp": c.timestamp.isoformat(),
+            "relatorio": {
+                "dominio": r.dominio if r else c.dominio,
+                "num_subdominios": r.num_subdominios if r else None,
+                "num_ips": r.num_ips if r else None,
+                "port_score": r.port_score if r else None,
+                "software_score": r.software_score if r else None,
+                "leak_score": r.leak_score if r else None,
+                "num_emails": r.num_emails if r else None,
+                "num_passwords": r.num_passwords if r else None,
+                "num_hashes": r.num_hashes if r else None,
+                "final_score": r.final_score if r else None,
+                "port_alertas": r.port_alertas if r else None,
+                "software_alertas": r.software_alertas if r else None,
+            },
+        }
 
 @app.delete("/api/chamados/{chamado_id}")
 async def remover_chamado(chamado_id: str):
