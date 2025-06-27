@@ -1,7 +1,6 @@
 import asyncio
 import os
 import tldextract
-import json
 from modules.subfinder import run_subfinder
 from modules.naabu import run_naabu
 from parsers.parse_dnsx import parse_dnsx
@@ -55,45 +54,32 @@ async def contar_linhas(path: str) -> int:
     return total
 
 
-_relatorios_cache: dict | None = None
+from sqlalchemy.future import select
+from database import AsyncSessionLocal
+from models import Report
 
 
 async def salvar_relatorio_json(info: dict) -> None:
-    """Adiciona ou atualiza um relatório no arquivo JSON (fora da pasta data/)."""
-    global _relatorios_cache
-    path = os.path.join("relatorios.json")
-
-    if _relatorios_cache is None:
-        try:
-            async with aiofiles.open(path, "r") as f:
-                content = await f.read()
-                _relatorios_cache = json.loads(content) if content else {}
-        except FileNotFoundError:
-            _relatorios_cache = {}
-        except Exception as e:
-            print(f"[ERRO] Falha ao ler {path}: {e}")
-            _relatorios_cache = {}
-
+    """Adiciona ou atualiza um relatório na base PostgreSQL."""
     dominio = info.get("dominio")
     if not dominio:
         return
 
-    existente = _relatorios_cache.get(dominio, {"dominio": dominio})
-    existente.update(info)
-    _relatorios_cache[dominio] = existente
-
-    try:
-        async with aiofiles.open(path, "w") as f:
-            await f.write(json.dumps(_relatorios_cache, indent=2))
-    except Exception as e:
-        print(f"[ERRO] Falha ao escrever {path}: {e}")
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Report).where(Report.dominio == dominio))
+        report = result.scalars().first()
+        if not report:
+            report = Report(dominio=dominio)
+            session.add(report)
+        for key, value in info.items():
+            if hasattr(report, key):
+                setattr(report, key, value)
+        await session.commit()
 
 def limpar_pasta_data() -> None:
     """Remove arquivos temporários gerados em ``data/``."""
     pasta = "data"
     for arquivo in os.listdir(pasta):
-        if arquivo == "relatorios.json":
-            continue  # evita apagar o relatório
         caminho = os.path.join(pasta, arquivo)
         if os.path.isfile(caminho):
             os.remove(caminho)

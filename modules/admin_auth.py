@@ -1,17 +1,25 @@
-from motor.motor_asyncio import AsyncIOMotorClient
-import os
 import bcrypt
+from sqlalchemy.future import select
+from sqlalchemy.exc import IntegrityError
 
-client = AsyncIOMotorClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
-db = client.cvedb
-admins = db.admins
+from database import AsyncSessionLocal
+from models import Admin
 
 async def create_admin(username: str, password: str) -> None:
-    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
-    await admins.insert_one({"username": username, "password": hashed.decode()})
+    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+    async with AsyncSessionLocal() as session:
+        admin = Admin(username=username, password=hashed)
+        session.add(admin)
+        try:
+            await session.commit()
+        except IntegrityError:
+            await session.rollback()
+            raise
 
 async def verify_admin(username: str, password: str) -> bool:
-    doc = await admins.find_one({"username": username})
-    if not doc:
-        return False
-    return bcrypt.checkpw(password.encode(), doc["password"].encode())
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Admin).where(Admin.username == username))
+        admin = result.scalars().first()
+        if not admin:
+            return False
+        return bcrypt.checkpw(password.encode(), admin.password.encode())
