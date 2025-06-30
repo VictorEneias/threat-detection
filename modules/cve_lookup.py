@@ -6,9 +6,11 @@ import asyncio
 from collections import defaultdict
 
 SOFTWARE_RE = re.compile(r"(\w[\w\-\.]*?/\d+\.\d+(?:\.\d+)?)")
-NAME_SPLIT_RE = re.compile('[-_]')
+NAME_SPLIT_RE = re.compile("[-_]")
 
-CPE_XML_PATH = os.path.join(os.path.dirname(__file__), '../CPE/official-cpe-dictionary_v2.3.xml')
+CPE_XML_PATH = os.path.join(
+    os.path.dirname(__file__), "../CPE/official-cpe-dictionary_v2.3.xml"
+)
 client = AsyncIOMotorClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
 db = client.cvedb
 
@@ -19,12 +21,20 @@ NOMES_NORMALIZADOS = {
     "pastewsgiserver": ("python", "paste"),
     "paste": ("python", "paste"),
     "phusion_passenger": ("phusion", "passenger"),
+    "phusion-passenger": ("phusion", "passenger"),
     "passenger": ("phusion", "passenger"),
 }
 
+
 def normalizar_nome_software(nome_detectado: str):
-    base = nome_detectado.lower().split("/")[0]
-    return NOMES_NORMALIZADOS.get(base)
+    base = nome_detectado.lower().split("/", 1)[0]
+    base = base.replace(" ", "_")
+    variantes = {base, base.replace("-", "_"), base.replace("_", "-")}
+    for v in variantes:
+        if v in NOMES_NORMALIZADOS:
+            return NOMES_NORMALIZADOS[v]
+    return None
+
 
 # Cache de CPEs
 _cpe_entries = []
@@ -32,25 +42,27 @@ _cpe_lookup = defaultdict(list)
 _cpe_single_lookup = defaultdict(list)
 _cpe_loaded = False
 
+
 def _load_cpe_index():
     global _cpe_loaded
     if _cpe_loaded:
         return
     tree = ET.parse(CPE_XML_PATH)
     root = tree.getroot()
-    ns = {'cpe23': 'http://scap.nist.gov/schema/cpe-extension/2.3'}
-    for entry in root.findall('.//cpe23:cpe23-item', ns):
-        name = entry.get('name')
+    ns = {"cpe23": "http://scap.nist.gov/schema/cpe-extension/2.3"}
+    for entry in root.findall(".//cpe23:cpe23-item", ns):
+        name = entry.get("name")
         if not name:
             continue
         lower = name.lower()
         _cpe_entries.append((lower, name))
-        parts = name.split(':')
+        parts = name.split(":")
         if len(parts) >= 6:
             key = (parts[3].lower(), parts[4].lower(), parts[5].lower())
             _cpe_lookup[key].append(name)
             _cpe_single_lookup[(parts[4].lower(), parts[5].lower())].append(name)
     _cpe_loaded = True
+
 
 # Função principal
 async def buscar_cves_para_softwares(lista_softwares):
@@ -84,7 +96,7 @@ async def buscar_cves_para_softwares(lista_softwares):
 
     async def procurar_cpe(ip, porta, item):
         try:
-            nome, versao = item.split('/')
+            nome, versao = item.split("/")
             nome = nome.lower()
             versao = versao.strip()
 
@@ -110,7 +122,9 @@ async def buscar_cves_para_softwares(lista_softwares):
             print(f"[ERRO] ao buscar CPE: {item} - {e}")
             return None
 
-    tarefas_cpe = [procurar_cpe(ip, porta, item) for ip, porta, item in softwares_validos]
+    tarefas_cpe = [
+        procurar_cpe(ip, porta, item) for ip, porta, item in softwares_validos
+    ]
     resultados_cpe = await asyncio.gather(*tarefas_cpe)
     softwares_com_cpe = [r for r in resultados_cpe if r]
 
@@ -131,16 +145,19 @@ async def buscar_cves_para_softwares(lista_softwares):
             return []
         return [
             {
-                'ip': ip,
-                'porta': porta,
-                'software': software,
-                'cve_id': cve.get('id'),
-                'cvss': cve.get('cvss3') or cve.get('cvss')
+                "ip": ip,
+                "porta": porta,
+                "software": software,
+                "cve_id": cve.get("id"),
+                "cvss": cve.get("cvss3") or cve.get("cvss"),
             }
             for cve in cves
         ]
 
-    tarefas = [consultar_cves(ip, porta, software, cpe) for ip, porta, software, cpe in softwares_com_cpe]
+    tarefas = [
+        consultar_cves(ip, porta, software, cpe)
+        for ip, porta, software, cpe in softwares_com_cpe
+    ]
     resultados = await asyncio.gather(*tarefas)
     for r in resultados:
         alertas_cves.extend(r)
