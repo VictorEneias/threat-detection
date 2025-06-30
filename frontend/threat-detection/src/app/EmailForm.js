@@ -213,7 +213,7 @@ export default function EmailForm() {
       {finalScore !== null && (
         <div className="bg-[#1a1a1a] text-white p-6 rounded-2xl shadow-lg w-full max-w-xl text-center border-t-4 border-[#ec008c]">
           <h2 className="text-lg font-bold mb-2 tracking-wide uppercase">Score Final</h2>
-          <ScoreGauge value={finalScore} />
+          <ScoreGauge value={finalScore * 100} />
         </div>
       )}
 
@@ -283,7 +283,7 @@ export default function EmailForm() {
                 <p className="animate-pulse text-sm">Calculando risco...</p>
               ) : (
                 <>
-                  <p className="text-base">Score: {portScore}</p>
+                  <p className="text-base">Score: {Math.round(portScore * 100)}</p>
                   <button
                     type="button"
                     className="underline text-sm mt-2"
@@ -304,7 +304,7 @@ export default function EmailForm() {
                 <p className="animate-pulse text-sm">Calculando risco...</p>
               ) : (
                 <>
-                  <p className="text-base">Score: {softScore}</p>
+                  <p className="text-base">Score: {Math.round(softScore * 100)}</p>
                   <button
                     type="button"
                     className="underline text-sm mt-2"
@@ -325,7 +325,7 @@ export default function EmailForm() {
                   <p className="animate-pulse text-sm">Coletando dados...</p>
                 ) : (
                   <>
-                    <p className="text-base">Score: {leakScore}</p>
+                    <p className="text-base">Score: {Math.round(leakScore * 100)}</p>
                     <button
                       type="button"
                       className="underline text-sm mt-2"
