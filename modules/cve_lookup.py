@@ -12,17 +12,27 @@ CPE_XML_PATH = os.path.join(os.path.dirname(__file__), '../CPE/official-cpe-dict
 client = AsyncIOMotorClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
 db = client.cvedb
 
-# --------------------------------------------------
-# Carrega o XML de CPE apenas uma vez e cria um índice otimizado
-# --------------------------------------------------
-_cpe_entries: list[tuple[str, str]] = []
-_cpe_lookup: dict[tuple[str, str, str], list[str]] = defaultdict(list)
-_cpe_single_lookup: dict[tuple[str, str], list[str]] = defaultdict(list)
+# Dicionário de normalização
+NOMES_NORMALIZADOS = {
+    "microsoft_iis": ("microsoft", "internet_information_services"),
+    "microsoft-iis": ("microsoft", "internet_information_services"),
+    "pastewsgiserver": ("python", "paste"),
+    "paste": ("python", "paste"),
+    "phusion_passenger": ("phusion", "passenger"),
+    "passenger": ("phusion", "passenger"),
+}
+
+def normalizar_nome_software(nome_detectado: str):
+    base = nome_detectado.lower().split("/")[0]
+    return NOMES_NORMALIZADOS.get(base)
+
+# Cache de CPEs
+_cpe_entries = []
+_cpe_lookup = defaultdict(list)
+_cpe_single_lookup = defaultdict(list)
 _cpe_loaded = False
 
-
-def _load_cpe_index() -> None:
-    """Parseia o XML de CPE apenas uma vez e popula índices."""
+def _load_cpe_index():
     global _cpe_loaded
     if _cpe_loaded:
         return
@@ -42,10 +52,7 @@ def _load_cpe_index() -> None:
             _cpe_single_lookup[(parts[4].lower(), parts[5].lower())].append(name)
     _cpe_loaded = True
 
-
-# ==================================================
-# FUNÇÃO PRINCIPAL CHAMADA PELO RISK_MAPPER
-# ==================================================
+# Função principal
 async def buscar_cves_para_softwares(lista_softwares):
     print("\n=== COLETANDO SOFTWARES VALIDOS ===")
     softwares_validos = []
@@ -80,11 +87,19 @@ async def buscar_cves_para_softwares(lista_softwares):
             nome, versao = item.split('/')
             nome = nome.lower()
             versao = versao.strip()
-            partes_nome = NAME_SPLIT_RE.split(nome)
-            if len(partes_nome) >= 2:
-                cpe = _find_cpe(partes_nome[0], partes_nome[1], versao)
+
+            # tenta normalizar nome
+            normalizado = normalizar_nome_software(nome)
+            if normalizado:
+                fabricante, nome_oficial = normalizado
+                cpe = _find_cpe(fabricante, nome_oficial, versao)
             else:
-                cpe = _find_cpe(nome, versao)
+                partes_nome = NAME_SPLIT_RE.split(nome)
+                if len(partes_nome) >= 2:
+                    cpe = _find_cpe(partes_nome[0], partes_nome[1], versao)
+                else:
+                    cpe = _find_cpe(nome, versao)
+
             if cpe:
                 print(f"[✔️] {nome} {versao} → {cpe}")
                 return (ip, porta, item, cpe)
@@ -97,13 +112,12 @@ async def buscar_cves_para_softwares(lista_softwares):
 
     tarefas_cpe = [procurar_cpe(ip, porta, item) for ip, porta, item in softwares_validos]
     resultados_cpe = await asyncio.gather(*tarefas_cpe)
-
     softwares_com_cpe = [r for r in resultados_cpe if r]
 
     print("\n=== BUSCANDO CVEs ===")
     alertas_cves = []
     sem = asyncio.Semaphore(10)
-    cve_cache: dict[str, list[dict]] = {}
+    cve_cache = {}
 
     async def consultar_cves(ip, porta, software, cpe):
         async with sem:
@@ -131,8 +145,5 @@ async def buscar_cves_para_softwares(lista_softwares):
     for r in resultados:
         alertas_cves.extend(r)
 
-    # Ordena alertas de CVEs pelo score CVSS (maior primeiro)
     alertas_cves.sort(key=lambda a: a.get("cvss", 0), reverse=True)
-
     return alertas_cves
-
