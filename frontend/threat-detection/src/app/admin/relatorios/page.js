@@ -37,13 +37,13 @@ function ReportCard({ dominio, onDelete }) {
         <div className="mt-2 text-sm">
           <p>Subdomínios: {info.num_subdominios}</p>
           <p>IPs únicos: {info.num_ips}</p>
-          <p>Nota Portas: {info.port_score}</p>
-          <p>Nota Softwares: {info.software_score}</p>
-          <p>Nota Vazamentos: {info.leak_score}</p>
+          <p>Nota Portas: {Math.round(info.port_score * 100)}</p>
+          <p>Nota Softwares: {Math.round(info.software_score * 100)}</p>
+          <p>Nota Vazamentos: {Math.round(info.leak_score * 100)}</p>
           <p>Emails Vazados: {info.num_emails ?? 0}</p>
           <p>Senhas Vazadas: {info.num_passwords ?? 0}</p>
           <p>Hashes Vazados: {info.num_hashes ?? 0}</p>
-          <p>Nota Final: {info.final_score}</p>
+          <p>Nota Final: {Math.round(info.final_score * 100)}</p>
           <div className="mt-2">
             <p className="font-semibold">Alertas de Portas:</p>
             {info.port_alertas && info.port_alertas.length > 0 ? (
