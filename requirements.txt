@@ -9,3 +9,4 @@ aiofiles
 bcrypt
 sqlalchemy>=1.4
 asyncpg
+puresnmp

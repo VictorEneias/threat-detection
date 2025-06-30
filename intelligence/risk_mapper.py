@@ -4,6 +4,10 @@ import re
 import time
 import httpx
 from modules.cve_lookup import buscar_cves_para_softwares
+from puresnmp import Client, credentials, ObjectIdentifier
+from puresnmp.api.pythonic import PyWrapper
+from puresnmp.exc import ErrorResponse
+
 
 HTTP_CLIENT: httpx.AsyncClient | None = None
 CONNECTION_SEM = asyncio.Semaphore(int(os.getenv("CONNECTION_LIMIT", "50")))
@@ -151,6 +155,22 @@ async def verificar_smtp(ip, porta):
     except Exception:
         return "falha", None
 
+OID_SYS_DESCR = ObjectIdentifier("1.3.6.1.2.1.1.1.0")  # sysDescr
+@medir_tempo_execucao_async
+async def verificar_snmp_public(ip: str, porta: int = 161, comunidade: str = "public") -> bool:
+    def sync_task():
+        client = Client(ip, credentials.V2C(comunidade), port=porta)
+        wrapped = PyWrapper(client)
+        try:
+            retorno = asyncio.get_event_loop().run_until_complete(wrapped.get(OID_SYS_DESCR))
+            return retorno is not None
+        except ErrorResponse:
+            return False
+        except Exception:
+            return False
+
+    return await asyncio.to_thread(sync_task)
+
 async def analisar_ip(ip, portas):
     alertas = []
 
@@ -207,9 +227,11 @@ async def analisar_ip(ip, portas):
             sub_alertas.append((ip, porta, "🟥 SMB habilitado — risco de ransomware ou vazamento de arquivos"))
 
         elif porta == 161:
-            sub_alertas.append(
-                (ip, porta, "⚠️ SNMP exposto — risco de vazamento de configuração de rede")
-            )
+            publico = await verificar_snmp_public(ip)
+            if publico:
+                sub_alertas.append((ip, porta, "🟥 SNMP com 'public' habilitado — acesso não autenticado à configuração da rede"))
+            else:
+                sub_alertas.append((ip, porta, "⚠️ SNMP exposto — sem acesso com community 'public'"))
 
         elif porta == 500:
             sub_alertas.append(
