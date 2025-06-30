@@ -31,6 +31,13 @@ async def run_naabu(ip_list_path: str, output_path: str, ports=None, timeout: in
             "587",
             "5432",
             "1433",
+            "110",
+            "143",
+            "161",
+            "500",
+            "4500",
+            "1723",
+            "1521",
         ]
 
     ports_str = ",".join(ports)
