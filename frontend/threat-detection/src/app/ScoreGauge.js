@@ -3,19 +3,21 @@ import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 
 export default function ScoreGauge({ value }) {
-  const percentage = Math.round(value * 100);
+  const percentage = Math.round(value);
 
   const getColor = () => {
-    if (value > 0.8) return '#00FF00'; // verde
-    if (value > 0.5) return '#FFBF00'; // amarelo
-    if (value > 0.3) return '#FF8000'; // laranja
+    const val = value / 100;
+    if (val > 0.8) return '#00FF00'; // verde
+    if (val > 0.5) return '#FFBF00'; // amarelo
+    if (val > 0.3) return '#FF8000'; // laranja
     return '#FF0000'; // vermelho
   };
 
   const getInterpretation = () => {
-    if (value > 0.8) return 'Risco baixo';
-    if (value > 0.5) return 'Risco moderado';
-    if (value > 0.3) return 'Risco alto';
+    const val = value / 100;
+    if (val > 0.8) return 'Risco baixo';
+    if (val > 0.5) return 'Risco moderado';
+    if (val > 0.3) return 'Risco alto';
     return 'Risco crítico';
   };
 

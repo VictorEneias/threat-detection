@@ -43,13 +43,13 @@ function ChamadoCard({ chamado, onDelete }) {
             <p>Domínio: {r.dominio}</p>
             <p>Subdomínios: {r.num_subdominios}</p>
             <p>IPs únicos: {r.num_ips}</p>
-            <p>Score Portas: {r.port_score}</p>
-            <p>Score Softwares: {r.software_score}</p>
-            <p>Score Vazamentos: {r.leak_score}</p>
+            <p>Score Portas: {Math.round(r.port_score * 100)}</p>
+            <p>Score Softwares: {Math.round(r.software_score * 100)}</p>
+            <p>Score Vazamentos: {Math.round(r.leak_score * 100)}</p>
             <p>Emails Vazados: {r.num_emails ?? 0}</p>
             <p>Senhas Vazadas: {r.num_passwords ?? 0}</p>
             <p>Hashes Vazadas: {r.num_hashes ?? 0}</p>
-            <p>Score Final: {r.final_score}</p>
+            <p>Score Final: {Math.round(r.final_score * 100)}</p>
           </div>
         </div>
       )}
