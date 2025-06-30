@@ -28,7 +28,28 @@ async def close_http_client() -> None:
 ESMTP_RE = re.compile(r"ESMTP\s+([\w\-\./]+)", re.IGNORECASE)
 MYSQL_RE = re.compile(r"([Mm]\s*\d+\.\d+(?:\.\d+)?(?:-[^\s]+)?)")
 
-PORTAS_CRITICAS = [21, 22, 23, 80, 443, 3389, 445, 3306, 5432, 1433, 25, 465, 587]
+PORTAS_CRITICAS = [
+    21,
+    22,
+    23,
+    80,
+    443,
+    3389,
+    445,
+    3306,
+    5432,
+    1433,
+    25,
+    465,
+    587,
+    110,
+    143,
+    161,
+    500,
+    4500,
+    1723,
+    1521,
+]
 softwares_detectados = []
 
 def medir_tempo_execucao_async(func):
@@ -147,6 +168,28 @@ async def analisar_ip(ip, portas):
         elif porta == 23:
             sub_alertas.append((ip, porta, "🟥 Telnet habilitado — comunicação sem criptografia"))
 
+        elif porta == 110:
+            ok, banner = await obter_banner(ip, porta, ["pop3"])
+            if ok:
+                sub_alertas.append(
+                    (
+                        ip,
+                        porta,
+                        f"📧 POP3 sem TLS — risco de interceptação (versão: {banner})",
+                    )
+                )
+
+        elif porta == 143:
+            ok, banner = await obter_banner(ip, porta, ["imap"])
+            if ok:
+                sub_alertas.append(
+                    (
+                        ip,
+                        porta,
+                        f"📧 IMAP sem TLS — risco de interceptação (versão: {banner})",
+                    )
+                )
+
         elif porta == 80:
             if 443 not in portas:
                 sub_alertas.append((ip, porta, "⚠️ HTTP sem HTTPS — dados podem ser interceptados"))
@@ -163,6 +206,26 @@ async def analisar_ip(ip, portas):
         elif porta == 445:
             sub_alertas.append((ip, porta, "🟥 SMB habilitado — risco de ransomware ou vazamento de arquivos"))
 
+        elif porta == 161:
+            sub_alertas.append(
+                (ip, porta, "⚠️ SNMP exposto — risco de vazamento de configuração de rede")
+            )
+
+        elif porta == 500:
+            sub_alertas.append(
+                (ip, porta, "⚠️ IPsec/IKE detectado na porta 500 — pode indicar VPN vulnerável")
+            )
+
+        elif porta == 4500:
+            sub_alertas.append(
+                (ip, porta, "⚠️ IPsec NAT detectado na porta 4500 — possível VPN vulnerável")
+            )
+
+        elif porta == 1723:
+            sub_alertas.append(
+                (ip, porta, "🟥 PPTP VPN habilitado — protocolo obsoleto e inseguro")
+            )
+
         elif porta == 3306:
             ok, banner = await obter_banner(ip, porta, ["mysql"])
             if ok:
@@ -173,10 +236,18 @@ async def analisar_ip(ip, portas):
             if ok:
                 sub_alertas.append((ip, porta, f"⚠️ PostgreSQL exposto ({banner})"))
 
+
         elif porta == 1433:
             ok, banner = await obter_banner(ip, porta, ["microsoft", "sql"])
             if ok:
                 sub_alertas.append((ip, porta, f"⚠️ Microsoft SQL Server acessível ({banner})"))
+
+        elif porta == 1521:
+            ok, banner = await obter_banner(ip, porta, ["oracle", "tns"])
+            if ok:
+                sub_alertas.append(
+                    (ip, porta, f"⚠️ Oracle DB acessível (versão: {banner})")
+                )
 
         elif porta in [25, 465, 587]:
             msg, software = await verificar_smtp(ip, porta)
