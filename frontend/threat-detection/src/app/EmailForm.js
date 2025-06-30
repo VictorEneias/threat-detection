@@ -283,7 +283,7 @@ export default function EmailForm() {
                 <p className="animate-pulse text-sm">Calculando risco...</p>
               ) : (
                 <>
-                  <p className="text-base">Score: {Math.round(portScore * 100)}</p>
+                  <p className="text-base">Score: {Math.round(portScore * 100)}%</p>
                   <button
                     type="button"
                     className="underline text-sm mt-2"
@@ -304,7 +304,7 @@ export default function EmailForm() {
                 <p className="animate-pulse text-sm">Calculando risco...</p>
               ) : (
                 <>
-                  <p className="text-base">Score: {Math.round(softScore * 100)}</p>
+                  <p className="text-base">Score: {Math.round(softScore * 100)}%</p>
                   <button
                     type="button"
                     className="underline text-sm mt-2"
@@ -325,7 +325,7 @@ export default function EmailForm() {
                   <p className="animate-pulse text-sm">Coletando dados...</p>
                 ) : (
                   <>
-                    <p className="text-base">Score: {Math.round(leakScore * 100)}</p>
+                    <p className="text-base">Score: {Math.round(leakScore * 100)}%</p>
                     <button
                       type="button"
                       className="underline text-sm mt-2"
