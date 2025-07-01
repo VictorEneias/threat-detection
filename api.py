@@ -149,7 +149,7 @@ async def listar_relatorios_summary():
         result = await session.execute(select(Report.dominio, Report.timestamp))
         rows = result.all()
         return [
-            {"dominio": dom, "timestamp": ts.isoformat()} for dom, ts in rows
+            {"dominio": dom, "timestamp": ts.isoformat() if ts else "sem data"} for dom, ts in rows
         ]
 
 @app.get("/api/reports/{dominio}")
