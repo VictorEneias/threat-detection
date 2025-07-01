@@ -22,7 +22,7 @@ function ChamadoCard({ chamado, onDelete }) {
       <div className="flex justify-between items-start">
         <div>
           <h2 className="font-semibold">{chamado.nome} - {chamado.empresa}</h2>
-          <p className="text-xs text-gray-400">{new Date(chamado.timestamp).toLocaleString()}</p>
+          <p className="text-xs text-gray-400">{new Date(chamado.timestamp + 'Z').toLocaleString()}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={toggle} className="underline">
