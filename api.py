@@ -97,6 +97,7 @@ async def obter_relatorio(alvo: str):
             raise HTTPException(status_code=404, detail="Relatório não encontrado")
         return {
             "dominio": r.dominio,
+            "timestamp": r.timestamp.isoformat(),
             "num_subdominios": r.num_subdominios,
             "num_ips": r.num_ips,
             "port_alertas": r.port_alertas,
@@ -126,6 +127,7 @@ async def listar_relatorios():
         for r in reports:
             retorno[r.dominio] = {
                 "dominio": r.dominio,
+                "timestamp": r.timestamp.isoformat(),
                 "num_subdominios": r.num_subdominios,
                 "num_ips": r.num_ips,
                 "port_alertas": r.port_alertas,
@@ -144,9 +146,11 @@ async def listar_relatorios():
 @app.get("/api/reports/summary")
 async def listar_relatorios_summary():
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(Report.dominio))
-        doms = result.scalars().all()
-        return doms
+        result = await session.execute(select(Report.dominio, Report.timestamp))
+        rows = result.all()
+        return [
+            {"dominio": dom, "timestamp": ts.isoformat()} for dom, ts in rows
+        ]
 
 @app.get("/api/reports/{dominio}")
 async def obter_relatorio(dominio: str):
