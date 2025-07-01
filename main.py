@@ -1,5 +1,6 @@
 import asyncio
 import os
+from datetime import datetime
 import tldextract
 from modules.subfinder import run_subfinder
 from modules.naabu import run_naabu
@@ -71,6 +72,7 @@ async def salvar_relatorio_json(info: dict) -> None:
         if not report:
             report = Report(dominio=dominio)
             session.add(report)
+        report.timestamp = datetime.utcnow()
         for key, value in info.items():
             if hasattr(report, key):
                 setattr(report, key, value)

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-function ReportCard({ dominio, onDelete }) {
+function ReportCard({ dominio, timestamp, onDelete }) {
   const [open, setOpen] = useState(false);
   const [info, setInfo] = useState(null);
 
@@ -19,8 +19,11 @@ function ReportCard({ dominio, onDelete }) {
   };
   return (
     <div className="bg-[#1a1a1a] p-4 rounded border-l-4 border-[#ec008c]">
-      <div className="flex justify-between items-center">
-        <h2 className="font-semibold">{dominio}</h2>
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="font-semibold">{dominio}</h2>
+          <p className="text-xs text-gray-400">{new Date(timestamp).toLocaleString()}</p>
+        </div>
         <div className="flex gap-2">
           <button onClick={toggle} className="underline">
             {open ? 'Fechar' : 'Ler mais'}
@@ -109,7 +112,7 @@ export default function RelatoriosPage() {
     if (!confirm(`Excluir relatorio de ${dom}?`)) return;
     const res = await fetch(`/api/reports/${dom}`, { method: 'DELETE' });
     if (res.ok) {
-      setReports((prev) => prev.filter((d) => d !== dom));
+      setReports((prev) => prev.filter((d) => d.dominio !== dom));
     } else {
       alert('Falha ao excluir relatório');
     }
@@ -133,8 +136,8 @@ export default function RelatoriosPage() {
       </button>
       <div className="w-full max-w-5xl flex flex-col gap-4">
         {reports.length === 0 && <p className="text-center">Nenhum relatório disponível.</p>}
-        {reports.map((dom) => (
-          <ReportCard key={dom} dominio={dom} onDelete={handleDelete} />
+        {reports.map((r) => (
+          <ReportCard key={r.dominio} dominio={r.dominio} timestamp={r.timestamp} onDelete={handleDelete} />
         ))}
       </div>
     </main>
