@@ -19,8 +19,11 @@ function ChamadoCard({ chamado, onDelete }) {
   const r = details ? details.relatorio : {};
   return (
     <div className="bg-[#1a1a1a] p-4 rounded border-l-4 border-[#ec008c]">
-      <div className="flex justify-between items-center">
-        <h2 className="font-semibold">{chamado.nome} - {chamado.empresa}</h2>
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="font-semibold">{chamado.nome} - {chamado.empresa}</h2>
+          <p className="text-xs text-gray-400">{new Date(chamado.timestamp).toLocaleString()}</p>
+        </div>
         <div className="flex gap-2">
           <button onClick={toggle} className="underline">
             {open ? 'Fechar' : 'Ler mais'}

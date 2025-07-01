@@ -17,6 +17,7 @@ class Report(Base):
 
     id = Column(Integer, primary_key=True)
     dominio = Column(String, unique=True, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
     num_subdominios = Column(Integer)
     num_ips = Column(Integer)
     port_alertas = Column(JSONB)
