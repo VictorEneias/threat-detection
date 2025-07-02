@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -46,3 +46,13 @@ class Chamado(Base):
     dominio = Column(String, ForeignKey("reports.dominio"))
 
     report = relationship("Report", back_populates="chamados")
+
+
+class TempPassword(Base):
+    __tablename__ = "temp_passwords"
+
+    id = Column(Integer, primary_key=True)
+    hash = Column(String, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    used = Column(Boolean, default=False)
+    expires_at = Column(DateTime, nullable=True)
