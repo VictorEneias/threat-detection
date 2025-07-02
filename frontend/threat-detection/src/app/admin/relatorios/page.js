@@ -122,6 +122,7 @@ export default function RelatoriosPage() {
     const fetchReports = async () => {
       const res = await fetch('/api/reports/summary');
       const data = await res.json();
+      data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       setReports(data);
     };
     fetchReports();

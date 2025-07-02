@@ -68,6 +68,7 @@ export default function ChamadosPage() {
     const fetchChamados = async () => {
       const res = await fetch('/api/chamados/summary');
       const data = await res.json();
+      data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       setChamados(data);
     };
     fetchChamados();
