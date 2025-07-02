@@ -25,12 +25,12 @@ function ChamadoCard({ chamado, onDelete }) {
           <p className="text-xs text-gray-400">{new Date(chamado.timestamp + 'Z').toLocaleString()}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={toggle} className="underline">
+          <button onClick={toggle} className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded">
             {open ? 'Fechar' : 'Ler mais'}
           </button>
           <button
             onClick={() => onDelete(chamado.id)}
-            className="text-red-500 underline"
+            className="bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded"
           >
             Excluir
           </button>
