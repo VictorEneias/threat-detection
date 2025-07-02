@@ -1,8 +1,8 @@
 import os
-import traceback
 import uuid
+import logging
 from datetime import datetime
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
 from pydantic import BaseModel
 from main import (
     executar_analise,
@@ -23,9 +23,19 @@ from sqlalchemy.exc import IntegrityError
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+logger = logging.getLogger(__name__)
 
 ALLOWED_ORIGIN = os.getenv("FRONTEND_URL", "http://localhost:3000")
 MAIN_PASS = os.getenv("NEXT_PUBLIC_APP_PASSWORD", "senha")
+
+TOKENS: set[str] = set()
+
+def require_token(authorization: str = Header(...)):
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token inválido")
+    token = authorization.split()[1]
+    if token not in TOKENS:
+        raise HTTPException(status_code=401, detail="Token inválido")
 
 app.add_middleware(
     CORSMiddleware,
@@ -83,8 +93,8 @@ async def leak(req: AnaliseRequest):
         )
         await salvar_relatorio_json({"dominio": dominio, **resultado, "leak_score": leak_score})
         return {**resultado, "leak_score": leak_score}
-    except Exception as e:
-        traceback.print_exc()
+    except Exception:
+        logger.exception("Falha ao consultar DeHashed")
         raise HTTPException(status_code=502, detail="Falha ao consultar DeHashed")
 
 
@@ -129,7 +139,7 @@ async def cancelar_atual():
     return {"status": "nenhum"}
 
 @app.get("/api/reports")
-async def listar_relatorios():
+async def listar_relatorios(_: None = Depends(require_token)):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Report))
         reports = result.scalars().all()
@@ -154,7 +164,7 @@ async def listar_relatorios():
         return retorno
 
 @app.get("/api/reports/summary")
-async def listar_relatorios_summary():
+async def listar_relatorios_summary(_: None = Depends(require_token)):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Report.dominio, Report.timestamp))
         rows = result.all()
@@ -163,7 +173,7 @@ async def listar_relatorios_summary():
         ]
 
 @app.get("/api/reports/{dominio}")
-async def obter_relatorio(dominio: str):
+async def obter_relatorio(dominio: str, _: None = Depends(require_token)):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Report).where(Report.dominio == dominio))
         r = result.scalars().first()
@@ -186,7 +196,7 @@ async def obter_relatorio(dominio: str):
         }
 
 @app.delete("/api/reports/{dominio}")
-async def remover_relatorio(dominio: str):
+async def remover_relatorio(dominio: str, _: None = Depends(require_token)):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Report).where(Report.dominio == dominio))
         r = result.scalars().first()
@@ -206,7 +216,7 @@ class ChamadoSchema(BaseModel):
 
 
 @app.post("/api/chamados")
-async def criar_chamado(ch: ChamadoSchema):
+async def criar_chamado(ch: ChamadoSchema, _: None = Depends(require_token)):
     dominio = ch.relatorio.get("dominio")
     if not dominio:
         raise HTTPException(status_code=400, detail="Relatório inválido")
@@ -227,7 +237,7 @@ async def criar_chamado(ch: ChamadoSchema):
 
 
 @app.get("/api/chamados")
-async def listar_chamados():
+async def listar_chamados(_: None = Depends(require_token)):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Chamado))
         chamados = result.scalars().all()
@@ -261,7 +271,7 @@ async def listar_chamados():
         return retorno
 
 @app.get("/api/chamados/summary")
-async def listar_chamados_summary():
+async def listar_chamados_summary(_: None = Depends(require_token)):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Chamado))
         chamados = result.scalars().all()
@@ -276,7 +286,7 @@ async def listar_chamados_summary():
         return retorno
 
 @app.get("/api/chamados/{chamado_id}")
-async def obter_chamado(chamado_id: str):
+async def obter_chamado(chamado_id: str, _: None = Depends(require_token)):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Chamado).where(Chamado.id == int(chamado_id)))
         c = result.scalars().first()
@@ -309,7 +319,7 @@ async def obter_chamado(chamado_id: str):
         }
 
 @app.delete("/api/chamados/{chamado_id}")
-async def remover_chamado(chamado_id: str):
+async def remover_chamado(chamado_id: str, _: None = Depends(require_token)):
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Chamado).where(Chamado.id == int(chamado_id)))
         chamado = result.scalars().first()
@@ -325,7 +335,9 @@ async def remover_chamado(chamado_id: str):
 @app.post("/api/login")
 async def login(req: LoginRequest):
     if await verify_admin(req.username, req.password):
-        return {"token": str(uuid.uuid4())}
+        token = str(uuid.uuid4())
+        TOKENS.add(token)
+        return {"token": token}
     raise HTTPException(status_code=401, detail="Credenciais inválidas")
 
 
