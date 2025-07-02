@@ -143,5 +143,10 @@ As variáveis `NEXT_PUBLIC_ADMIN_USER` e `NEXT_PUBLIC_ADMIN_PASS` não são mais
 obrigatórias: o login do painel agora é realizado contra a coleção `admins` do
 banco MongoDB.
 
+Senhas temporárias podem ser geradas no painel admin. Elas são válidas apenas
+uma vez e expiram automaticamente quando utilizadas (ou após o tempo definido
+na criação). O backend continua aceitando a senha principal definida em
+`NEXT_PUBLIC_APP_PASSWORD`.
+
 O servidor de desenvolvimento do Next.js roda apenas em HTTP. Caso deseje disponibilizar o frontend em HTTPS, utilize um proxy reverso (por exemplo, nginx) para fornecer o certificado TLS.
 

@@ -15,6 +15,7 @@ from main import (
 from modules.dehashed import verificar_vazamentos
 from intelligence.scoring import calcular_score_leaks
 from modules.admin_auth import verify_admin, create_admin
+from modules.temp_password import create_temp_password, list_temp_passwords, use_temp_password
 from database import AsyncSessionLocal
 from models import Report, Chamado
 from sqlalchemy.future import select
@@ -24,6 +25,7 @@ from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 
 ALLOWED_ORIGIN = os.getenv("FRONTEND_URL", "http://localhost:3000")
+MAIN_PASS = os.getenv("NEXT_PUBLIC_APP_PASSWORD", "senha")
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,6 +48,14 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     username: str
     password: str
+
+
+class PasswordRequest(BaseModel):
+    password: str
+
+
+class TempPassRequest(BaseModel):
+    ttl_minutes: int | None = None
 
 @app.post("/api/port-analysis")
 async def iniciar(req: AnaliseRequest):
@@ -326,3 +336,34 @@ async def register(req: RegisterRequest):
     except IntegrityError:
         raise HTTPException(status_code=400, detail="Usuário já existe")
     return {"status": "ok"}
+
+
+@app.post("/api/check-password")
+async def check_password(req: PasswordRequest):
+    if req.password == MAIN_PASS:
+        return {"valid": True}
+    if await use_temp_password(req.password):
+        return {"valid": True}
+    raise HTTPException(status_code=401, detail="Senha inválida")
+
+
+@app.post("/api/temp-passwords")
+async def gerar_senha(req: TempPassRequest):
+    senha = await create_temp_password(req.ttl_minutes)
+    return {"password": senha}
+
+
+@app.get("/api/temp-passwords")
+async def listar_senhas():
+    senhas = await list_temp_passwords()
+    retorno = []
+    for s in senhas:
+        retorno.append(
+            {
+                "id": s.id,
+                "timestamp": s.timestamp.isoformat(),
+                "used": s.used,
+                "expires_at": s.expires_at.isoformat() if s.expires_at else None,
+            }
+        )
+    return retorno
