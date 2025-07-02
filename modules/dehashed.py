@@ -22,11 +22,13 @@ async def search_dehashed(query: str, page: int = 1, size: int = 10000,
     }
     async with httpx.AsyncClient(timeout=30) as client:
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post("https://api.dehashed.com/v2/search",
-                                     json=payload, headers=headers)
-                resp.raise_for_status()
-                return resp.json()
+            resp = await client.post(
+                "https://api.dehashed.com/v2/search",
+                json=payload,
+                headers=headers,
+            )
+            resp.raise_for_status()
+            return resp.json()
         except httpx.HTTPStatusError as e:
             print(f"[HTTPStatusError] Código: {e.response.status_code}")
             print(f"Resposta: {e.response.text}")

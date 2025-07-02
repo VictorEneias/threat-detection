@@ -18,7 +18,7 @@ def get_http_client() -> httpx.AsyncClient:
     """Retorna o cliente HTTP, recriando se estiver fechado."""
     global HTTP_CLIENT
     if HTTP_CLIENT is None or HTTP_CLIENT.is_closed:
-        HTTP_CLIENT = httpx.AsyncClient(timeout=10, verify=False)
+        HTTP_CLIENT = httpx.AsyncClient(timeout=10)
     return HTTP_CLIENT
 
 
