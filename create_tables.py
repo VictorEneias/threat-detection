@@ -1,5 +1,6 @@
 import asyncio
 from database import init_db
+import models
 
 async def main():
     await init_db()
