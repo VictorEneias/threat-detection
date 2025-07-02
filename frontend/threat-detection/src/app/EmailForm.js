@@ -286,7 +286,7 @@ export default function EmailForm() {
                   <p className="text-base">Score: {Math.round(portScore * 100)}%</p>
                   <button
                     type="button"
-                    className="underline text-sm mt-2"
+                    className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm mt-2"
                     onClick={() =>
                       setSelectedDetail(selectedDetail === 'port' ? null : 'port')
                     }
@@ -307,7 +307,7 @@ export default function EmailForm() {
                   <p className="text-base">Score: {Math.round(softScore * 100)}%</p>
                   <button
                     type="button"
-                    className="underline text-sm mt-2"
+                    className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm mt-2"
                     onClick={() =>
                       setSelectedDetail(selectedDetail === 'soft' ? null : 'soft')
                     }
@@ -328,7 +328,7 @@ export default function EmailForm() {
                     <p className="text-base">Score: {Math.round(leakScore * 100)}%</p>
                     <button
                       type="button"
-                      className="underline text-sm mt-2"
+                      className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded text-sm mt-2"
                       onClick={() =>
                         setSelectedDetail(selectedDetail === 'leak' ? null : 'leak')
                       }
