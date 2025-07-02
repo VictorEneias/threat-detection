@@ -28,6 +28,7 @@ def extrair_dominio(alvo: str) -> str | None:
     será somente ``dominio.tld``. Retorna ``None`` se não for possível
     identificar domínio.
     """
+    alvo = alvo.strip()
     if "@" in alvo:
         alvo = alvo.split("@", 1)[1]
 
