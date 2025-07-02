@@ -2,16 +2,19 @@
 import { useState } from 'react';
 import EmailForm from './EmailForm';
 
-const APP_PASS = process.env.NEXT_PUBLIC_APP_PASSWORD || 'senha';
-
 export default function Home() {
   const [autenticado, setAutenticado] = useState(false);
   const [senha, setSenha] = useState('');
 
   if (!autenticado) {
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
       e.preventDefault();
-      if (senha === APP_PASS) {
+      const res = await fetch('/api/check-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: senha }),
+      });
+      if (res.ok) {
         setAutenticado(true);
       } else {
         alert('Senha incorreta');
