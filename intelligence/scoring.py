@@ -1,7 +1,7 @@
-import math
+import math  # modulo para operações matemáticas
 
 
-ALERT_WEIGHTS = {
+ALERT_WEIGHTS = {  # pesos de risco para tipos de alertas de serviços expostos
     "Telnet": 5,
     "RDP": 5,
     "SMB": 5,
@@ -21,62 +21,65 @@ ALERT_WEIGHTS = {
     "HTTP exposto": 2.5,
 }
 
-# Pesos para vazamentos de dados
+# Pesos para vazamentos de dados sensíveis
 LEAK_WEIGHTS = {
     "emails": 1,
     "passwords": 5,
     "hashes": 3,
 }
 
-ADJUST_K = 4
+ADJUST_K = 4  # constante usada no fator de ajuste
 
 def _peso_porta(msg: str) -> int:
-    for chave, peso in ALERT_WEIGHTS.items():
-        if chave in msg:
-            return peso
-    return 1
+    """Retorna o peso associado a um alerta de porta."""
+    for chave, peso in ALERT_WEIGHTS.items():  # percorre dicionário de serviços
+        if chave in msg:  # verifica se o texto do alerta cita o serviço
+            return peso  # retorna o peso correspondente
+    return 1  # peso mínimo caso não encontre correspondência
 
 def _fator_ajuste(qtd: int, k: int = ADJUST_K) -> float:
-    return math.log2(qtd + 1) * k
+    """Calcula fator de ajuste pela quantidade analisada."""
+    return math.log2(qtd + 1) * k  # log ajuda a suavizar números grandes
 
 
 def _formula(risco_total: float, fator: float) -> float:
-    if fator <= 0:
+    """Aplica fórmula de normalização ao risco calculado."""
+    if fator <= 0:  # evita divisão por zero
         return 1.0
-    return (1 / (1 + (risco_total / fator)))
+    return (1 / (1 + (risco_total / fator)))  # resultado entre 0 e 1
 
 
 def calcular_score_portas(alertas, qtd_ips: int, k: int = ADJUST_K):
-    """Recebe lista [(ip, porta, mensagem)] e quantidade de IPs analisados."""
-    if not alertas or qtd_ips <= 0:
+    """Calcula o score considerando serviços expostos em várias portas."""
+    if not alertas or qtd_ips <= 0:  # nenhuma evidência ou entrada inválida
         return 1.0
-    risco_total = sum(_peso_porta(a[2]) for a in alertas)
-    fator = _fator_ajuste(qtd_ips, k)
-    score = _formula(risco_total, fator)
-    return round(score, 2)
+    risco_total = sum(_peso_porta(a[2]) for a in alertas)  # soma pesos
+    fator = _fator_ajuste(qtd_ips, k)  # ajusta pelo número de IPs
+    score = _formula(risco_total, fator)  # normaliza resultado
+    return round(score, 2)  # limita casas decimais
 
 def calcular_score_softwares(alertas, k: int = ADJUST_K):
-    """Recebe lista de dicts com chave 'cvss' e quantidade de softwares."""
-    cvss_vals = [a.get("cvss", 0) for a in alertas if a.get("cvss") is not None]
-    if not cvss_vals:
+    """Calcula score baseado nos CVSS das vulnerabilidades."""
+    cvss_vals = [a.get("cvss", 0) for a in alertas if a.get("cvss") is not None]  # extrai notas CVSS
+    if not cvss_vals:  # sem dados retorna score máximo
         return 1.0
-    risco_total = sum(cvss_vals)
-    fator = _fator_ajuste(len(cvss_vals), k)
-    score = _formula(risco_total, fator)
+    risco_total = sum(cvss_vals)  # soma todas as notas
+    fator = _fator_ajuste(len(cvss_vals), k)  # ajusta pela quantidade
+    score = _formula(risco_total, fator)  # aplica fórmula final
     return round(score, 2)
 
 
 def calcular_score_leaks(num_emails: int, num_passwords: int, num_hashes: int,
                          k: int = ADJUST_K) -> float:
-    """Calcula score baseado na quantidade de vazamentos."""
-    total = num_emails + num_passwords + num_hashes
-    if total <= 0:
+    """Calcula score baseado na quantidade de vazamentos identificados."""
+    total = num_emails + num_passwords + num_hashes  # soma de registros
+    if total <= 0:  # nenhum vazamento encontrado
         return 1.0
     risco_total = (
         num_emails * LEAK_WEIGHTS["emails"]
         + num_passwords * LEAK_WEIGHTS["passwords"]
         + num_hashes * LEAK_WEIGHTS["hashes"]
-    )
-    fator = _fator_ajuste(total, k)
-    score = _formula(risco_total, fator)
+    )  # pondera cada tipo de dado pelo peso
+    fator = _fator_ajuste(total, k)  # ajusta pela quantidade total
+    score = _formula(risco_total, fator)  # resultado final normalizado
     return round(score, 2)
