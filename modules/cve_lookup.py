@@ -2,36 +2,23 @@
 # associados via banco cvedb. Todo o processamento é assíncrono
 # para aproveitar melhor o acesso ao MongoDB e ao dicionário CPE.
 
-# Importa o cliente assíncrono do MongoDB
-from motor.motor_asyncio import AsyncIOMotorClient
-# Módulo de expressões regulares
-import re
-# Manipulação de XML para ler o dicionário de CPE
-import xml.etree.ElementTree as ET
-# Funções de sistema operacional
-import os
-# Ferramentas assíncronas utilizadas ao longo do módulo
-import asyncio
-# Estrutura de dados para armazenar listas de forma prática
-from collections import defaultdict
+from motor.motor_asyncio import AsyncIOMotorClient  # cliente assíncrono do MongoDB
+import re  # expressões regulares
+import xml.etree.ElementTree as ET  # manipulação de XML
+import os  # funções de sistema operacional
+import asyncio  # utilidades assíncronas
+from collections import defaultdict  # estruturas de listas práticas
 
-# Expressão para extrair 'software/versão' de cadeias de texto
-SOFTWARE_RE = re.compile(r"(\w[\w\-\.]*?/\d+\.\d+(?:\.\d+)?)")
-# Expressão para separar nomes usando hífen ou underline
-NAME_SPLIT_RE = re.compile("[-_]")
+SOFTWARE_RE = re.compile(r"(\w[\w\-\.]*?/\d+\.\d+(?:\.\d+)?)")  # extrai "software/versão"
+NAME_SPLIT_RE = re.compile("[-_]")  # separa nomes usando hífen ou underline
 
-# Caminho do arquivo XML contendo o dicionário oficial de CPE
 CPE_XML_PATH = os.path.join(
     os.path.dirname(__file__), "../CPE/official-cpe-dictionary_v2.3.xml"
-)
-# Cliente de banco de dados MongoDB usando variável de ambiente
-client = AsyncIOMotorClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))
-# Referência para o banco de dados com as CVEs
-db = client.cvedb
+)  # caminho do XML oficial do CPE
+client = AsyncIOMotorClient(os.getenv("MONGODB_URI", "mongodb://localhost:27017"))  # cliente MongoDB
+db = client.cvedb  # referência ao banco de CVEs
 
-# Dicionário de normalização
-# Mapeia variações de nomes para a forma oficialmente utilizada no CPE
-NOMES_NORMALIZADOS = {
+NOMES_NORMALIZADOS = {  # mapeia variações de nomes para a forma oficial do CPE
     "microsoft_iis": ("microsoft", "internet_information_services"),
     "microsoft-iis": ("microsoft", "internet_information_services"),
     "pastewsgiserver": ("python", "paste"),
@@ -39,7 +26,6 @@ NOMES_NORMALIZADOS = {
     "phusion_passenger": ("phusion", "passenger"),
     "phusion-passenger": ("phusion", "passenger"),
     "passenger": ("phusion", "passenger"),
-# Fim do dicionário de normalização
 }
 
 
@@ -62,15 +48,10 @@ def normalizar_nome_software(nome_detectado: str):
     return None
 
 
-# Cache de CPEs
-# Listagem completa das entradas de CPE carregadas do XML
-_cpe_entries = []
-# Índice rápido de busca por fabricante/nome/versão
-_cpe_lookup = defaultdict(list)
-# Índice simplificado apenas por nome e versão
-_cpe_single_lookup = defaultdict(list)
-# Indicador se o dicionário já foi carregado
-_cpe_loaded = False
+_cpe_entries = []  # listagem completa das entradas de CPE carregadas do XML
+_cpe_lookup = defaultdict(list)  # índice por fabricante/nome/versão
+_cpe_single_lookup = defaultdict(list)  # índice simplificado por nome/versão
+_cpe_loaded = False  # indica se o dicionário já foi carregado
 
 
 # Carrega o dicionário de CPE do arquivo XML para memória
@@ -78,23 +59,18 @@ def _load_cpe_index():
     """Preenche os caches de lookup a partir do XML oficial.
     A função é idempotente e evita leituras repetidas do disco."""
     global _cpe_loaded
-    # Não recarrega caso já tenha sido feito anteriormente
-    if _cpe_loaded:
+    if _cpe_loaded:  # não recarrega caso já tenha sido feito anteriormente
         return
-    # Analisa o XML contendo o dicionário
-    tree = ET.parse(CPE_XML_PATH)
+    tree = ET.parse(CPE_XML_PATH)  # analisa o XML contendo o dicionário
     root = tree.getroot()
-    # Espaço de nomes utilizado nas tags CPE 2.3
-    ns = {"cpe23": "http://scap.nist.gov/schema/cpe-extension/2.3"}
+    ns = {"cpe23": "http://scap.nist.gov/schema/cpe-extension/2.3"}  # namespace do CPE 2.3
     # Para cada item encontrado no dicionário
     for entry in root.findall(".//cpe23:cpe23-item", ns):
         name = entry.get("name")
         if not name:
             continue
-        # Mantém a versão minúscula para comparação
-        lower = name.lower()
-        # Guarda a dupla minúscula->original
-        _cpe_entries.append((lower, name))
+        lower = name.lower()  # mantém a versão minúscula para comparação
+        _cpe_entries.append((lower, name))  # guarda a dupla minúscula->original
         parts = name.split(":")
         if len(parts) >= 6:
             # Cria chave (fabricante, nome, versão)
@@ -112,20 +88,16 @@ async def buscar_cves_para_softwares(lista_softwares):
     alertas de CVE ordenados por severidade.
     Cada passo da busca (extração, CPE e CVE) é realizado de forma
     assíncrona para maximizar a performance."""
-    # Informativo inicial
-    print("\n=== COLETANDO SOFTWARES VALIDOS ===")
-    # Lista para armazenar entradas no formato (ip, porta, software/versão)
-    softwares_validos = []
+    print("\n=== COLETANDO SOFTWARES VALIDOS ===")  # informativo inicial
+    softwares_validos = []  # armazenará (ip, porta, software/versão)
 
-    # Para cada item recebido, extraímos as ocorrências de software/versão
-    for ip, porta, software_raw in lista_softwares:
+    for ip, porta, software_raw in lista_softwares:  # extrai softwares/versão
         matches = SOFTWARE_RE.findall(software_raw)
         for m in matches:
             print(f"[EXTRAÇÃO] {ip}:{porta} {m}")
             softwares_validos.append((ip, porta, m))
 
-    # Em seguida buscamos os CPEs correspondentes
-    print("\n=== BUSCANDO CPEs ===")
+    print("\n=== BUSCANDO CPEs ===")  # etapa seguinte
     _load_cpe_index()
 
     # Função auxiliar para localizar o CPE com base em tokens do nome
@@ -188,24 +160,16 @@ async def buscar_cves_para_softwares(lista_softwares):
             print(f"[ERRO] ao buscar CPE: {item} - {e}")
             return None
 
-    # Monta as tarefas de busca de CPE
-    # Cada software extraído resulta em uma tarefa assíncrona
-    # que resolverá o CPE correspondente
-    tarefas_cpe = [
+    tarefas_cpe = [  # cada software gera uma tarefa para resolver o CPE
         procurar_cpe(ip, porta, item) for ip, porta, item in softwares_validos
     ]
-    # Aguarda todas as tarefas de resolução de CPE finalizarem
-    resultados_cpe = await asyncio.gather(*tarefas_cpe)
-    # Filtra apenas os resultados válidos (onde um CPE foi encontrado)
-    softwares_com_cpe = [r for r in resultados_cpe if r]
+    resultados_cpe = await asyncio.gather(*tarefas_cpe)  # espera resolução
+    softwares_com_cpe = [r for r in resultados_cpe if r]  # mantém apenas válidos
 
-    # Agora, para cada CPE encontrado, buscaremos CVEs
-    print("\n=== BUSCANDO CVEs ===")
+    print("\n=== BUSCANDO CVEs ===")  # etapa seguinte
     alertas_cves = []
-    # Limita dez consultas simultâneas ao banco
-    sem = asyncio.Semaphore(10)
-    # Cache simples para evitar consultas repetidas do mesmo CPE
-    cve_cache = {}
+    sem = asyncio.Semaphore(10)  # até dez consultas simultâneas
+    cve_cache = {}  # evita consultas repetidas
 
     # Consulta assíncrona das CVEs relacionadas a um CPE
     async def consultar_cves(ip, porta, software, cpe):
@@ -230,18 +194,13 @@ async def buscar_cves_para_softwares(lista_softwares):
             for cve in cves
         ]
 
-    # Cria as tarefas de consulta de CVEs para cada CPE detectado
-    tarefas = [
+    tarefas = [  # tarefas de consulta para cada CPE detectado
         consultar_cves(ip, porta, software, cpe)
         for ip, porta, software, cpe in softwares_com_cpe
     ]
-    # Executa todas as consultas em paralelo
-    resultados = await asyncio.gather(*tarefas)
-    # Junta todos os alertas encontrados em uma única lista
-    for r in resultados:
+    resultados = await asyncio.gather(*tarefas)  # executa em paralelo
+    for r in resultados:  # une todos os alertas
         alertas_cves.extend(r)
 
-    # Ordena do CVSS mais alto para o mais baixo
-    # garantindo que vulnerabilidades críticas apareçam primeiro
-    alertas_cves.sort(key=lambda a: a.get("cvss", 0), reverse=True)
-    return alertas_cves  # lista final de vulnerabilidades encontradas
+    alertas_cves.sort(key=lambda a: a.get("cvss", 0), reverse=True)  # ordena por CVSS
+    return alertas_cves
