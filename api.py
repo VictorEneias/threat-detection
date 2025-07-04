@@ -2,7 +2,7 @@ import os  # módulo de utilidades do sistema operacional
 import uuid  # geração de identificadores únicos
 import logging  # gerenciamento de logs
 from datetime import datetime  # manipulação de datas e horas
-from fastapi import FastAPI, HTTPException, Header, Depends  # componentes principais do FastAPI
+from fastapi import FastAPI, HTTPException, Header, Depends, Response  # componentes principais do FastAPI
 from pydantic import BaseModel  # base para modelos de dados
 from main import (  # funções de análise definidas no módulo principal
     executar_analise,  # inicia a análise principal
@@ -21,6 +21,7 @@ from models import Report, Chamado  # modelos ORM utilizados
 from sqlalchemy.future import select  # utilitário de consultas assíncronas
 from sqlalchemy.exc import IntegrityError  # exceção de integridade do SQLAlchemy
 from fastapi.middleware.cors import CORSMiddleware  # middleware para habilitar CORS
+from fpdf import FPDF  # geração de PDFs
 
 app = FastAPI()  # instancia a aplicação web
 logger = logging.getLogger(__name__)  # logger específico deste módulo
@@ -195,6 +196,39 @@ async def obter_relatorio(dominio: str, _: None = Depends(require_token)):  # de
             "leaked_data": r.leaked_data,  # dados associados
             "final_score": r.final_score,  # avaliação final
         }  # fim do retorno detalhado
+
+@app.get("/api/reports/{dominio}/pdf")
+async def exportar_relatorio_pdf(dominio: str, _: None = Depends(require_token)):
+    """Gera um PDF simples com os dados do relatório"""
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Report).where(Report.dominio == dominio))
+        r = result.scalars().first()
+        if not r:
+            raise HTTPException(status_code=404, detail="Relatório não encontrado")
+
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        pdf.cell(0, 10, f"Relatório de {r.dominio}", ln=True)
+        pdf.cell(0, 10, f"Data: {r.timestamp.isoformat()}", ln=True)
+        pdf.ln(5)
+        pdf.cell(0, 10, f"Subdomínios: {r.num_subdominios}", ln=True)
+        pdf.cell(0, 10, f"IPs únicos: {r.num_ips}", ln=True)
+        pdf.cell(0, 10, f"Nota Portas: {round(r.port_score * 100)}", ln=True)
+        pdf.cell(0, 10, f"Nota Softwares: {round(r.software_score * 100)}", ln=True)
+        pdf.cell(0, 10, f"Nota Vazamentos: {round(r.leak_score * 100)}", ln=True)
+        pdf.cell(0, 10, f"Emails Vazados: {r.num_emails or 0}", ln=True)
+        pdf.cell(0, 10, f"Senhas Vazadas: {r.num_passwords or 0}", ln=True)
+        pdf.cell(0, 10, f"Hashes Vazados: {r.num_hashes or 0}", ln=True)
+        pdf.cell(0, 10, f"Nota Final: {round(r.final_score * 100)}", ln=True)
+
+        pdf_bytes = pdf.output(dest="S").encode("latin1")
+
+        headers = {
+            "Content-Disposition": f"attachment; filename={dominio}.pdf"
+        }
+        return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+    
 
 @app.delete("/api/reports/{dominio}")  # remove relatório do banco
 async def remover_relatorio(dominio: str, _: None = Depends(require_token)):  # exclui relatório existente

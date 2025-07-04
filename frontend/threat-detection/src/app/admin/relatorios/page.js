@@ -17,6 +17,21 @@ function ReportCard({ dominio, timestamp, onDelete }) {
     }
     setOpen(!open);
   };
+
+  const exportar = async () => {
+    const res = await fetch(`/api/reports/${dominio}/pdf`);
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${dominio}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } else {
+      alert('Falha ao gerar PDF');
+    }
+  };
   return (
     <div className="bg-[#1a1a1a] p-4 rounded border-l-4 border-[#ec008c]">
       <div className="flex justify-between items-start">
@@ -27,6 +42,9 @@ function ReportCard({ dominio, timestamp, onDelete }) {
         <div className="flex gap-2">
           <button onClick={toggle} className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded">
             {open ? 'Fechar' : 'Ler mais'}
+          </button>
+          <button onClick={exportar} className="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded">
+            Exportar PDF
           </button>
           <button
             onClick={() => onDelete(dominio)}
