@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getCookie } from 'cookies-next';
 
 function ReportCard({ dominio, timestamp, onDelete }) {
   const [open, setOpen] = useState(false);
@@ -9,7 +10,9 @@ function ReportCard({ dominio, timestamp, onDelete }) {
 
   const toggle = async () => {
     if (!open && !info) {
-      const res = await fetch(`/api/reports/${dominio}`);
+      const res = await fetch(`/api/reports/${dominio}`, {
+        headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setInfo(data);
@@ -19,7 +22,9 @@ function ReportCard({ dominio, timestamp, onDelete }) {
   };
 
   const exportar = async () => {
-    const res = await fetch(`/api/reports/${dominio}/pdf`);
+    const res = await fetch(`/api/reports/${dominio}/pdf`, {
+      headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+    });
     if (res.ok) {
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -128,7 +133,10 @@ export default function RelatoriosPage() {
 
   const handleDelete = async (dom) => {
     if (!confirm(`Excluir relatorio de ${dom}?`)) return;
-    const res = await fetch(`/api/reports/${dom}`, { method: 'DELETE' });
+    const res = await fetch(`/api/reports/${dom}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+    });
     if (res.ok) {
       setReports((prev) => prev.filter((d) => d.dominio !== dom));
     } else {
@@ -138,7 +146,9 @@ export default function RelatoriosPage() {
 
   useEffect(() => {
     const fetchReports = async () => {
-      const res = await fetch('/api/reports/summary');
+      const res = await fetch('/api/reports/summary', {
+        headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+      });
       const data = await res.json();
       data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       setReports(data);
