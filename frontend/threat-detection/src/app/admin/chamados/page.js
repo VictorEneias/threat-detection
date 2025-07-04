@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getCookie } from 'cookies-next';
 
 function ChamadoCard({ chamado, onDelete }) {
   const [open, setOpen] = useState(false);
@@ -8,7 +9,9 @@ function ChamadoCard({ chamado, onDelete }) {
 
   const toggle = async () => {
     if (!open && !details) {
-      const res = await fetch(`/api/chamados/${chamado.id}`);
+      const res = await fetch(`/api/chamados/${chamado.id}`, {
+        headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+      });
       if (res.ok) {
         const data = await res.json();
         setDetails(data);
@@ -66,7 +69,9 @@ export default function ChamadosPage() {
 
   useEffect(() => {
     const fetchChamados = async () => {
-      const res = await fetch('/api/chamados/summary');
+      const res = await fetch('/api/chamados/summary', {
+        headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+      });
       const data = await res.json();
       data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       setChamados(data);
@@ -76,7 +81,10 @@ export default function ChamadosPage() {
 
   const handleDelete = async (id) => {
     if (!confirm('Excluir chamado?')) return;
-    const res = await fetch(`/api/chamados/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/chamados/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+    });
     if (res.ok) {
       setChamados((prev) => prev.filter((c) => c.id !== id));
     } else {
