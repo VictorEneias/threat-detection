@@ -22,6 +22,24 @@ from sqlalchemy.future import select  # utilitário de consultas assíncronas
 from sqlalchemy.exc import IntegrityError  # exceção de integridade do SQLAlchemy
 from fastapi.middleware.cors import CORSMiddleware  # middleware para habilitar CORS
 from fpdf import FPDF  # geração de PDFs
+import textwrap  # quebra de textos longos para o PDF
+
+# Caminhos de fontes que suportam Unicode
+DEJAVU_PATH = "/usr/share/fonts/truetype/dejavu/"
+REGULAR_FONT = f"{DEJAVU_PATH}DejaVuSans.ttf"
+BOLD_FONT = f"{DEJAVU_PATH}DejaVuSans-Bold.ttf"
+
+
+def wrap_pdf_text(text: str, width: int = 100) -> str:
+    """Quebra palavras longas para evitar exceções do FPDF."""
+    lines: list[str] = []
+    for line in text.splitlines():
+        if not line:
+            lines.append("")
+            continue
+        parts = textwrap.wrap(line, width)
+        lines.extend(parts if parts else [""])
+    return "\n".join(lines)
 
 app = FastAPI()  # instancia a aplicação web
 logger = logging.getLogger(__name__)  # logger específico deste módulo
@@ -207,8 +225,10 @@ async def exportar_relatorio_pdf(dominio: str, _: None = Depends(require_token))
             raise HTTPException(status_code=404, detail="Relatório não encontrado")
 
         pdf = FPDF()
+        pdf.add_font("DejaVu", "", REGULAR_FONT, uni=True)
+        pdf.add_font("DejaVu", "B", BOLD_FONT, uni=True)
         pdf.add_page()
-        pdf.set_font("Arial", size=12)
+        pdf.set_font("DejaVu", size=12)
         pdf.cell(0, 10, f"Relatório de {r.dominio}", ln=True)
         pdf.cell(0, 10, f"Data: {r.timestamp.isoformat()}", ln=True)
         pdf.ln(5)
@@ -222,7 +242,56 @@ async def exportar_relatorio_pdf(dominio: str, _: None = Depends(require_token))
         pdf.cell(0, 10, f"Hashes Vazados: {r.num_hashes or 0}", ln=True)
         pdf.cell(0, 10, f"Nota Final: {round(r.final_score * 100)}", ln=True)
 
-        pdf_bytes = pdf.output(dest="S").encode("latin1")
+        pdf.ln(5)
+        pdf.set_font("DejaVu", "B", size=12)
+        pdf.cell(0, 10, "Alertas de Portas:", ln=True)
+        pdf.set_font("DejaVu", size=12)
+        if r.port_alertas:
+            for a in r.port_alertas:
+                ip = a.get("ip", "")
+                porta = a.get("porta", "")
+                msg = wrap_pdf_text(a.get("mensagem", ""))
+                pdf.multi_cell(0, 10, f"{ip}:{porta} -> {msg}")
+        else:
+            pdf.cell(0, 10, "Nenhum alerta.", ln=True)
+
+        pdf.ln(2)
+        pdf.set_font("DejaVu", "B", size=12)
+        pdf.cell(0, 10, "Alertas de Softwares:", ln=True)
+        pdf.set_font("DejaVu", size=12)
+        if r.software_alertas:
+            for a in r.software_alertas:
+                ip = a.get("ip", "")
+                porta = a.get("porta", "")
+                soft = a.get("software", "")
+                cve = a.get("cve_id", "")
+                cvss = a.get("cvss", "")
+                texto_alerta = wrap_pdf_text(f"{soft} vulnerável a {cve} (CVSS {cvss})")
+                pdf.multi_cell(0, 10, f"{ip}:{porta} -> {texto_alerta}")
+        else:
+            pdf.cell(0, 10, "Nenhum alerta.", ln=True)
+
+        pdf.ln(2)
+        pdf.set_font("DejaVu", "B", size=12)
+        pdf.cell(0, 10, "Dados Vazados:", ln=True)
+        pdf.set_font("DejaVu", size=12)
+        if r.leaked_data:
+            pdf.set_font("DejaVu", size=10)
+            pdf.cell(60, 10, "Email", border=1)
+            pdf.cell(40, 10, "Senha texto", border=1)
+            pdf.cell(60, 10, "Senha hash", border=1, ln=True)
+            for row in r.leaked_data:
+                email = wrap_pdf_text(row.get("email", ""), 30)
+                password = wrap_pdf_text(row.get("password", ""), 20)
+                hash_ = wrap_pdf_text(row.get("hash", ""), 30)
+                pdf.multi_cell(60, 10, email, border=1, new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size)
+                pdf.multi_cell(40, 10, password, border=1, new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size)
+                pdf.multi_cell(60, 10, hash_, border=1, new_x="LMARGIN", new_y="NEXT", max_line_height=pdf.font_size)
+            pdf.set_font("DejaVu", size=12)
+        else:
+            pdf.cell(0, 10, "Nenhum dado vazado.", ln=True)
+
+        pdf_bytes = bytes(pdf.output(dest="S"))
 
         headers = {
             "Content-Disposition": f"attachment; filename={dominio}.pdf"
