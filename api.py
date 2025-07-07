@@ -30,8 +30,17 @@ REGULAR_FONT = f"{DEJAVU_PATH}DejaVuSans.ttf"
 BOLD_FONT = f"{DEJAVU_PATH}DejaVuSans-Bold.ttf"
 
 
-def wrap_pdf_text(text: str, width: int = 100) -> str:
-    """Quebra palavras longas para evitar exceções do FPDF."""
+def wrap_pdf_text(text: object, width: int = 50) -> str:
+    """Quebra palavras longas para evitar exceções do FPDF.
+
+    Aceita strings ou listas/tuplas de textos. Outros tipos são
+    convertidos para ``str`` diretamente.
+    """
+    if not isinstance(text, str):
+        if isinstance(text, (list, tuple, set)):
+            text = " ".join(str(t) for t in text)
+        else:
+            text = str(text)
     lines: list[str] = []
     for line in text.splitlines():
         if not line:
@@ -217,7 +226,14 @@ async def obter_relatorio(dominio: str, _: None = Depends(require_token)):  # de
 
 @app.get("/api/reports/{dominio}/pdf")
 async def exportar_relatorio_pdf(dominio: str, _: None = Depends(require_token)):
-    """Gera um PDF simples com os dados do relatório"""
+    """Gera um PDF melhor formatado com os dados do relatório"""
+    def limpar_emojis(texto) -> str:
+        if isinstance(texto, (list, tuple, set)):
+            texto = " ".join(str(t) for t in texto)
+        elif not isinstance(texto, str):
+            texto = str(texto)
+        return texto.replace("⚠️", "").replace("📧", "").replace("🟥", "")
+
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(Report).where(Report.dominio == dominio))
         r = result.scalars().first()
@@ -228,75 +244,93 @@ async def exportar_relatorio_pdf(dominio: str, _: None = Depends(require_token))
         pdf.add_font("DejaVu", "", REGULAR_FONT, uni=True)
         pdf.add_font("DejaVu", "B", BOLD_FONT, uni=True)
         pdf.add_page()
-        pdf.set_font("DejaVu", size=12)
-        pdf.cell(0, 10, f"Relatório de {r.dominio}", ln=True)
-        pdf.cell(0, 10, f"Data: {r.timestamp.isoformat()}", ln=True)
-        pdf.ln(5)
-        pdf.cell(0, 10, f"Subdomínios: {r.num_subdominios}", ln=True)
-        pdf.cell(0, 10, f"IPs únicos: {r.num_ips}", ln=True)
-        pdf.cell(0, 10, f"Nota Portas: {round(r.port_score * 100)}", ln=True)
-        pdf.cell(0, 10, f"Nota Softwares: {round(r.software_score * 100)}", ln=True)
-        pdf.cell(0, 10, f"Nota Vazamentos: {round(r.leak_score * 100)}", ln=True)
-        pdf.cell(0, 10, f"Emails Vazados: {r.num_emails or 0}", ln=True)
-        pdf.cell(0, 10, f"Senhas Vazadas: {r.num_passwords or 0}", ln=True)
-        pdf.cell(0, 10, f"Hashes Vazados: {r.num_hashes or 0}", ln=True)
-        pdf.cell(0, 10, f"Nota Final: {round(r.final_score * 100)}", ln=True)
+        pdf.set_auto_page_break(auto=True, margin=15)
 
+        pdf.set_font("DejaVu", "B", size=14)
+        pdf.cell(0, 10, f"Relatório de {r.dominio}", ln=True)
+
+        pdf.set_font("DejaVu", "", size=11)
+        pdf.cell(0, 10, f"Data: {r.timestamp.isoformat()}", ln=True)
+
+        pdf.ln(4)
+        pdf.set_font("DejaVu", "B", size=12)
+        pdf.cell(0, 8, "Resumo Geral:", ln=True)
+        pdf.set_font("DejaVu", "", size=11)
+        pdf.cell(0, 8, f"Subdomínios: {r.num_subdominios}", ln=True)
+        pdf.cell(0, 8, f"IPs únicos: {r.num_ips}", ln=True)
+        pdf.cell(0, 8, f"Nota Portas: {round(r.port_score * 100)}", ln=True)
+        pdf.cell(0, 8, f"Nota Softwares: {round(r.software_score * 100)}", ln=True)
+        pdf.cell(0, 8, f"Nota Vazamentos: {round(r.leak_score * 100)}", ln=True)
+        pdf.cell(0, 8, f"Emails Vazados: {r.num_emails or 0}", ln=True)
+        pdf.cell(0, 8, f"Senhas Vazadas: {r.num_passwords or 0}", ln=True)
+        pdf.cell(0, 8, f"Hashes Vazados: {r.num_hashes or 0}", ln=True)
+        pdf.cell(0, 8, f"Nota Final: {round(r.final_score * 100)}", ln=True)
+
+        # Port Alerts
         pdf.ln(5)
         pdf.set_font("DejaVu", "B", size=12)
         pdf.cell(0, 10, "Alertas de Portas:", ln=True)
-        pdf.set_font("DejaVu", size=12)
+        pdf.set_font("DejaVu", "", size=10)
         if r.port_alertas:
             for a in r.port_alertas:
                 ip = a.get("ip", "")
                 porta = a.get("porta", "")
-                msg = wrap_pdf_text(a.get("mensagem", ""))
-                pdf.multi_cell(0, 10, f"{ip}:{porta} -> {msg}")
+                msg = wrap_pdf_text(limpar_emojis(a.get("mensagem", "")), width=90)
+                pdf.multi_cell(0, 8, f"{ip}:{porta} -> {msg}", ln=True)
         else:
-            pdf.cell(0, 10, "Nenhum alerta.", ln=True)
+            pdf.cell(0, 8, "Nenhum alerta.", ln=True)
 
-        pdf.ln(2)
+        # Software Alerts
+        pdf.ln(4)
         pdf.set_font("DejaVu", "B", size=12)
         pdf.cell(0, 10, "Alertas de Softwares:", ln=True)
-        pdf.set_font("DejaVu", size=12)
+        pdf.set_font("DejaVu", "", size=10)
         if r.software_alertas:
             for a in r.software_alertas:
                 ip = a.get("ip", "")
                 porta = a.get("porta", "")
-                soft = a.get("software", "")
+                soft = limpar_emojis(a.get("software", ""))
                 cve = a.get("cve_id", "")
                 cvss = a.get("cvss", "")
-                texto_alerta = wrap_pdf_text(f"{soft} vulnerável a {cve} (CVSS {cvss})")
-                pdf.multi_cell(0, 10, f"{ip}:{porta} -> {texto_alerta}")
+                texto_alerta = wrap_pdf_text(f"{soft} vulnerável a {cve} (CVSS {cvss})", width=90)
+                pdf.multi_cell(0, 8, f"{ip}:{porta} -> {texto_alerta}", ln=True)
         else:
-            pdf.cell(0, 10, "Nenhum alerta.", ln=True)
+            pdf.cell(0, 8, "Nenhum alerta.", ln=True)
 
-        pdf.ln(2)
+        # Leaked Data
+        pdf.ln(4)
         pdf.set_font("DejaVu", "B", size=12)
         pdf.cell(0, 10, "Dados Vazados:", ln=True)
-        pdf.set_font("DejaVu", size=12)
+        pdf.set_font("DejaVu", "", size=9)
         if r.leaked_data:
-            pdf.set_font("DejaVu", size=10)
-            pdf.cell(60, 10, "Email", border=1)
-            pdf.cell(40, 10, "Senha texto", border=1)
-            pdf.cell(60, 10, "Senha hash", border=1, ln=True)
+            pdf.set_fill_color(230, 230, 230)
+            pdf.cell(60, 8, "Email", border=1, fill=True)
+            pdf.cell(50, 8, "Senha texto", border=1, fill=True)
+            pdf.cell(75, 8, "Senha hash", border=1, ln=True, fill=True)
+
             for row in r.leaked_data:
-                email = wrap_pdf_text(row.get("email", ""), 30)
-                password = wrap_pdf_text(row.get("password", ""), 20)
-                hash_ = wrap_pdf_text(row.get("hash", ""), 30)
-                pdf.multi_cell(60, 10, email, border=1, new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size)
-                pdf.multi_cell(40, 10, password, border=1, new_x="RIGHT", new_y="TOP", max_line_height=pdf.font_size)
-                pdf.multi_cell(60, 10, hash_, border=1, new_x="LMARGIN", new_y="NEXT", max_line_height=pdf.font_size)
-            pdf.set_font("DejaVu", size=12)
+                if isinstance(row, dict):
+                    email_val = row.get("email", "")
+                    pass_val = row.get("password", "")
+                    hash_val = row.get("hash", "")
+                elif isinstance(row, (list, tuple)):
+                    email_val, pass_val, hash_val = (list(row) + ["", "", ""])[:3]
+                else:
+                    email_val = pass_val = hash_val = str(row)
+
+                pdf.cell(60, 7, wrap_pdf_text(limpar_emojis(email_val), 25), border=1)
+                pdf.cell(50, 7, wrap_pdf_text(limpar_emojis(pass_val), 20), border=1)
+                pdf.cell(75, 7, wrap_pdf_text(limpar_emojis(hash_val), 30), border=1, ln=True)
         else:
-            pdf.cell(0, 10, "Nenhum dado vazado.", ln=True)
+            pdf.cell(0, 8, "Nenhum dado vazado.", ln=True)
 
+        # Output
         pdf_bytes = bytes(pdf.output(dest="S"))
-
         headers = {
             "Content-Disposition": f"attachment; filename={dominio}.pdf"
         }
         return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
     
 
 @app.delete("/api/reports/{dominio}")  # remove relatório do banco
