@@ -29,6 +29,7 @@ HTTP_CLIENT: httpx.AsyncClient | None = None  # cliente HTTP reutilizado entre a
 CONNECTION_SEM = asyncio.Semaphore(int(os.getenv("CONNECTION_LIMIT", "50")))  # limita o número de conexões simultâneas
 IP_SEM = asyncio.Semaphore(int(os.getenv("IP_LIMIT", "20")))  # controla quantos IPs são avaliados ao mesmo tempo
 
+TLS_SCAN_TIMEOUT = int(os.getenv("TLS_SCAN_TIMEOUT", "20"))  # segundos
 
 def get_http_client() -> httpx.AsyncClient:  # obtém o cliente HTTP global
     """Retorna o cliente HTTP, recriando se estiver fechado."""
@@ -232,9 +233,15 @@ def _run_tls_scan_sync(ip: str):  # executa a varredura TLS de forma síncrona
     return next(scanner.get_results())
 
 
-async def scan_tls(ip: str) -> List[str]:  # verifica configuracoes TLS
+async def scan_tls(ip: str) -> List[str]:
     try:
-        result = await asyncio.to_thread(_run_tls_scan_sync, ip)
+        result = await asyncio.wait_for(
+            asyncio.to_thread(_run_tls_scan_sync, ip),
+            timeout=TLS_SCAN_TIMEOUT,
+        )
+    except asyncio.TimeoutError:
+        print(f"[TIMEOUT] TLS scan for {ip} exceeded {TLS_SCAN_TIMEOUT}s")
+        return []
     except Exception as exc:
         print(f"[ERROR] SSLyze scan failed for {ip}: {exc}")
         return []
@@ -288,7 +295,7 @@ async def scan_tls(ip: str) -> List[str]:  # verifica configuracoes TLS
 
     try:
         if scan.http_headers.result.strict_transport_security_header is None:
-            alerts.append("⚠️ Ausência de HSTS - facilita SSL-strip; não é bug, é hardening faltante")
+            alerts.append("⚠️ Ausência de HSTS - facilita SSL-strip")
     except Exception:
         pass
 
@@ -447,9 +454,9 @@ async def avaliar_portas(portas_por_ip):  # executa análise para vários IPs
     async def analisar_com_timeout(ip, portas):  # aplica timeout por IP
         try:
             async with IP_SEM:
-                return await asyncio.wait_for(analisar_ip(ip, portas), timeout=60)
+                return await asyncio.wait_for(analisar_ip(ip, portas), timeout=35)
         except asyncio.TimeoutError:
-            print(f"[TIMEOUT] análise do IP {ip} excedeu 60s e foi abortada.")
+            print(f"[TIMEOUT] análise do IP {ip} excedeu 35s e foi abortada.")
             return []
 
     tarefas = [analisar_com_timeout(ip, portas) for ip, portas in portas_por_ip.items()]  # dispara avaliações
