@@ -11,10 +11,18 @@ import os  # acesso a variáveis de ambiente e funções do sistema
 import re  # expressões regulares utilizadas na análise de banners
 import time  # mensuração de tempo de execução das funções
 import httpx  # cliente HTTP assíncrono utilizado nas requisições
+from datetime import datetime  # datas para verificação de certificados
+from typing import List
 from modules.cve_lookup import buscar_cves_para_softwares  # busca CVEs para softwares detectados
 from puresnmp import Client, credentials, ObjectIdentifier  # biblioteca para consultas SNMP
 from puresnmp.api.pythonic import PyWrapper  # interface Pythonic para o puresnmp
 from puresnmp.exc import ErrorResponse  # exceção tratada em consultas SNMP
+from sslyze.server_setting import ServerNetworkLocation
+from sslyze.scanner.scanner import Scanner, ServerScanRequest
+from sslyze.plugins.scan_commands import ScanCommand
+from sslyze.scanner.models import ServerScanStatusEnum
+from sslyze.plugins.robot.implementation import RobotScanResultEnum
+from sslyze.plugins.session_resumption.implementation import TlsResumptionSupportEnum
 
 
 HTTP_CLIENT: httpx.AsyncClient | None = None  # cliente HTTP reutilizado entre as chamadas
@@ -197,6 +205,119 @@ async def verificar_snmp_public(ip: str, porta: int = 161, comunidade: str = "pu
             return False  # outros erros
 
     return await asyncio.to_thread(sync_task)  # executa blocking I/O em thread
+def _run_tls_scan_sync(ip: str):  # executa a varredura TLS de forma síncrona
+    scanner = Scanner()
+    request = ServerScanRequest(
+        server_location=ServerNetworkLocation(ip, 443),
+        scan_commands={
+            ScanCommand.CERTIFICATE_INFO,
+            ScanCommand.TLS_1_0_CIPHER_SUITES,
+            ScanCommand.TLS_1_1_CIPHER_SUITES,
+            ScanCommand.TLS_1_2_CIPHER_SUITES,
+            ScanCommand.TLS_1_3_CIPHER_SUITES,
+            ScanCommand.TLS_COMPRESSION,
+            ScanCommand.HEARTBLEED,
+            ScanCommand.ROBOT,
+            ScanCommand.HTTP_HEADERS,
+            ScanCommand.SESSION_RESUMPTION,
+            ScanCommand.SESSION_RENEGOTIATION,
+            ScanCommand.TLS_1_3_EARLY_DATA,
+            ScanCommand.OPENSSL_CCS_INJECTION,
+            ScanCommand.TLS_FALLBACK_SCSV,
+            ScanCommand.ELLIPTIC_CURVES,
+            ScanCommand.TLS_EXTENDED_MASTER_SECRET,
+        },
+    )
+    scanner.queue_scans([request])
+    return next(scanner.get_results())
+
+
+async def scan_tls(ip: str) -> List[str]:  # verifica configuracoes TLS
+    try:
+        result = await asyncio.to_thread(_run_tls_scan_sync, ip)
+    except Exception as exc:
+        print(f"[ERROR] SSLyze scan failed for {ip}: {exc}")
+        return []
+
+    alerts: List[str] = []
+
+    if (result.scan_status != ServerScanStatusEnum.COMPLETED or not result.scan_result):
+        print(f"[ERROR] Could not collect TLS info for {ip}")
+        return [] 
+
+    scan = result.scan_result
+
+    try:
+        for dep in scan.certificate_info.result.certificate_deployments:
+            cert = dep.received_certificate_chain.leaf_certificate
+            if cert.not_valid_after < datetime.utcnow():
+                alerts.append("🟥 Certificado TLS expirado")
+                break
+    except Exception:
+        pass
+
+    try:
+        if scan.tls_1_0_cipher_suites.result.supported_cipher_suites:
+            alerts.append("⚠️ Suporte a TLS 1.0")
+    except Exception:
+        pass
+
+    try:
+        if scan.tls_1_1_cipher_suites.result.supported_cipher_suites:
+            alerts.append("⚠️ Suporte a TLS 1.1")
+    except Exception:
+        pass
+
+    try:
+        if scan.tls_compression.result.supports_compression:
+            alerts.append("🟥 TLS compression habilitada - abre brecha para o ataque CRIME (roubo de cookies)")
+    except Exception:
+        pass
+
+    try:
+        if scan.heartbleed.result.is_vulnerable_to_heartbleed:
+            alerts.append("🟥 Vulnerável ao Heartbleed - vazamento de memória do servidor")
+    except Exception:
+        pass
+
+    try:
+        if scan.robot.result.robot_result != RobotScanResultEnum.NOT_VULNERABLE_NO_ORACLE:
+            alerts.append("🟥 Vulnerável ao ataque ROBOT - permite descriptografar sessões históricas")
+    except Exception:
+        pass
+
+    try:
+        if scan.http_headers.result.strict_transport_security_header is None:
+            alerts.append("⚠️ Ausência de HSTS - facilita SSL-strip; não é bug, é hardening faltante")
+    except Exception:
+        pass
+
+    try:
+        reneg = scan.session_renegotiation.result
+        if not reneg.supports_secure_renegotiation:
+            alerts.append("⚠️ Renegociação insegura habilitada - expõe a ataques de mistura de sessões")
+    except Exception:
+        pass
+
+    try:
+        if scan.openssl_ccs_injection.result.is_vulnerable_to_ccs_injection:
+            alerts.append("🟥 Vulnerável a OpenSSL CCS Injection - permite MITM")
+    except Exception:
+        pass
+
+    try:
+        if not scan.tls_fallback_scsv.result.supports_fallback_scsv:
+            alerts.append("⚠️ Falta proteção TLS_FALLBACK_SCSV")
+    except Exception:
+        pass
+
+    try:
+        if not scan.tls_extended_master_secret.result.supports_ems_extension:
+            alerts.append("⚠️ Sem suporte a Extended Master Secret")
+    except Exception:
+        pass
+
+    return alerts
 
 async def analisar_ip(ip, portas):  # avalia cada porta aberta de um IP
     """Executa verificações específicas para cada porta detectada."""
@@ -247,6 +368,9 @@ async def analisar_ip(ip, portas):  # avalia cada porta aberta de um IP
 
         elif porta == 443:
             await obter_server_header(ip, "https")  # coleta header HTTPS
+            tls_alertas = await scan_tls(ip)
+            for msg in tls_alertas:
+                sub_alertas.append((ip, porta, msg))
 
         elif porta == 3389:
             sub_alertas.append((ip, porta, "🟥 RDP exposto — risco alto de invasão por desktop remoto"))  # RDP aberto
@@ -323,9 +447,9 @@ async def avaliar_portas(portas_por_ip):  # executa análise para vários IPs
     async def analisar_com_timeout(ip, portas):  # aplica timeout por IP
         try:
             async with IP_SEM:
-                return await asyncio.wait_for(analisar_ip(ip, portas), timeout=30)
+                return await asyncio.wait_for(analisar_ip(ip, portas), timeout=60)
         except asyncio.TimeoutError:
-            print(f"[TIMEOUT] análise do IP {ip} excedeu 130s e foi abortada.")
+            print(f"[TIMEOUT] análise do IP {ip} excedeu 60s e foi abortada.")
             return []
 
     tarefas = [analisar_com_timeout(ip, portas) for ip, portas in portas_por_ip.items()]  # dispara avaliações

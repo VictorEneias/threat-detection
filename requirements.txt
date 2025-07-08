@@ -11,3 +11,4 @@ sqlalchemy
 asyncpg
 puresnmp
 fpdf2
+sslyze
