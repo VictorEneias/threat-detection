@@ -19,6 +19,17 @@ ALERT_WEIGHTS = {  # pesos de risco para tipos de alertas de serviços expostos
     "PPTP": 4.5,
     "HTTP sem HTTPS": 3.5,
     "HTTP exposto": 2.5,
+    "Certificado TLS expirado": 4,
+    "Suporte a TLS 1.0": 3,
+    "Suporte a TLS 1.1": 2.5,
+    "TLS compression": 4,
+    "Vulnerável ao Heartbleed": 5,
+    "Vulnerável ao ataque ROBOT": 4.5,
+    "Ausência de HSTS": 2,
+    "Renegociação insegura": 3,
+    "OpenSSL CCS Injection": 5,
+    "TLS_FALLBACK_SCSV": 2,
+    "Extended Master Secret": 2,
 }
 
 # Pesos para vazamentos de dados sensíveis
