@@ -1,0 +1,8 @@
+.git
+venv
+**/__pycache__
+frontend/threat-detection/node_modules
+frontend/threat-detection/.next
+backend/cve-db/cve-search
+backend/CPE
+
