@@ -5,3 +5,4 @@ backend/CPE/official-cpe-dictionary_v2.3.xml
 venv/
 /frontend/threat-detection/.next/
 /frontend/threat-detection/out/
+.env
