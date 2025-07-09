@@ -1,6 +1,6 @@
 import asyncio  # Biblioteca para gerenciar a execucao assincrona
-from database import init_db  # Funcao responsavel por criar as tabelas
-import models  # Importa os modelos para que o SQLAlchemy registre as tabelas
+from .database import init_db  # Funcao responsavel por criar as tabelas
+from . import models  # Importa os modelos para que o SQLAlchemy registre as tabelas
 
 async def main():  # Define a corrotina principal
     await init_db()  # Cria as tabelas definidas em models.py

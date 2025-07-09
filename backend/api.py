@@ -4,7 +4,7 @@ import logging  # gerenciamento de logs
 from datetime import datetime  # manipulação de datas e horas
 from fastapi import FastAPI, HTTPException, Header, Depends, Response  # componentes principais do FastAPI
 from pydantic import BaseModel  # base para modelos de dados
-from main import (  # funções de análise definidas no módulo principal
+from .main import (  # funções de análise definidas no módulo principal
     executar_analise,  # inicia a análise principal
     consultar_software_alertas,  # consulta alertas de softwares
     cancelar_job,  # cancela um job específico
@@ -12,12 +12,12 @@ from main import (  # funções de análise definidas no módulo principal
     extrair_dominio,  # utilitário para extrair domínio
     salvar_relatorio_json,  # salva relatórios em disco
 )  # fim dos imports de main
-from modules.dehashed import verificar_vazamentos  # busca vazamentos em serviços externos
-from intelligence.scoring import calcular_score_leaks  # cálculo de score de vazamentos
-from modules.admin_auth import verify_admin, create_admin  # rotinas de autenticação administrativa
-from modules.temp_password import create_temp_password, list_temp_passwords, use_temp_password  # gestão de senhas temporárias
-from database import AsyncSessionLocal  # sessão assíncrona com o banco
-from models import Report, Chamado  # modelos ORM utilizados
+from .modules.dehashed import verificar_vazamentos  # busca vazamentos em serviços externos
+from .intelligence.scoring import calcular_score_leaks  # cálculo de score de vazamentos
+from .modules.admin_auth import verify_admin, create_admin  # rotinas de autenticação administrativa
+from .modules.temp_password import create_temp_password, list_temp_passwords, use_temp_password  # gestão de senhas temporárias
+from .database import AsyncSessionLocal  # sessão assíncrona com o banco
+from .models import Report, Chamado  # modelos ORM utilizados
 from sqlalchemy.future import select  # utilitário de consultas assíncronas
 from sqlalchemy.exc import IntegrityError  # exceção de integridade do SQLAlchemy
 from fastapi.middleware.cors import CORSMiddleware  # middleware para habilitar CORS

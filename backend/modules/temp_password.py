@@ -3,8 +3,8 @@ import bcrypt  # hashing de senhas
 from datetime import datetime, timedelta  # manipulação de datas
 from sqlalchemy.future import select  # consultas assíncronas
 
-from database import AsyncSessionLocal  # sessão assíncrona com o banco
-from models import TempPassword  # modelo de senhas temporárias
+from ..database import AsyncSessionLocal  # sessão assíncrona com o banco
+from ..models import TempPassword  # modelo de senhas temporárias
 
 async def create_temp_password(ttl_minutes: int | None = None) -> str:  # cria senha temporária
     password = secrets.token_urlsafe(8)  # token seguro

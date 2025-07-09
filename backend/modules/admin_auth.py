@@ -2,8 +2,8 @@ import bcrypt  # Biblioteca para criptografar senhas
 from sqlalchemy.future import select  # Função de seleção assíncrona do SQLAlchemy
 from sqlalchemy.exc import IntegrityError  # Erro gerado em caso de violação de integridade
 
-from database import AsyncSessionLocal  # Sessão assíncrona com o banco de dados
-from models import Admin  # Modelo ORM que representa o administrador
+from ..database import AsyncSessionLocal  # Sessão assíncrona com o banco de dados
+from ..models import Admin  # Modelo ORM que representa o administrador
 
 async def create_admin(username: str, password: str) -> None:  # Cria um novo usuário administrador
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()  # Gera hash seguro da senha

@@ -13,7 +13,7 @@ import time  # mensuração de tempo de execução das funções
 import httpx  # cliente HTTP assíncrono utilizado nas requisições
 from datetime import datetime  # datas para verificação de certificados
 from typing import List
-from modules.cve_lookup import buscar_cves_para_softwares  # busca CVEs para softwares detectados
+from ..modules.cve_lookup import buscar_cves_para_softwares  # busca CVEs para softwares detectados
 from puresnmp import Client, credentials, ObjectIdentifier  # biblioteca para consultas SNMP
 from puresnmp.api.pythonic import PyWrapper  # interface Pythonic para o puresnmp
 from puresnmp.exc import ErrorResponse  # exceção tratada em consultas SNMP

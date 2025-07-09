@@ -3,7 +3,7 @@ from sqlalchemy.dialects.postgresql import JSONB  # Tipo JSON específico do Pos
 from sqlalchemy.orm import relationship  # Função para definir relacionamentos ORM
 from datetime import datetime  # Módulo para trabalhar com datas e horas
 
-from database import Base  # Classe base para os modelos do SQLAlchemy
+from .database import Base  # Classe base para os modelos do SQLAlchemy
 
 class Admin(Base):  # Representa usuários administradores
     __tablename__ = "admins"  # Nome da tabela no banco
