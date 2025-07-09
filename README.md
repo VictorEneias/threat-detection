@@ -150,3 +150,13 @@ na criação). O backend continua aceitando a senha principal definida em
 
 O servidor de desenvolvimento do Next.js roda apenas em HTTP. Caso deseje disponibilizar o frontend em HTTPS, utilize um proxy reverso (por exemplo, nginx) para fornecer o certificado TLS.
 
+### Docker Compose
+
+Também é possível iniciar todo o ambiente utilizando Docker. Certifique-se de ter o **Docker** e o **docker-compose** instalados. Copie o arquivo `.env` para ajustar as credenciais necessárias e então execute:
+
+```bash
+docker compose up --build
+```
+
+Serão criados os serviços `postgres`, `mongo`, `backend` e `frontend`. O backend ficará disponível na porta `8000` e o frontend na porta `3000`. Configure o nginx para encaminhar o tráfego HTTPS para essas portas conforme sua necessidade.
+
