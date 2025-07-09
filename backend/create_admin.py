@@ -1,6 +1,6 @@
 import asyncio  # lida com tarefas assíncronas
 from getpass import getpass  # lê senha sem exibi-la
-from .modules.admin_auth import create_admin  # função que grava administrador
+from modules.admin_auth import create_admin  # função que grava administrador
 
 async def main():  # função principal
     username = input("Username: ")  # solicita usuário

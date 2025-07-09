@@ -8,22 +8,22 @@ import asyncio  # Biblioteca para execução assíncrona
 import os  # Funções de sistema operacional
 from datetime import datetime  # Manipulação de datas
 import tldextract  # Extrai domínios
-from .modules.subfinder import run_subfinder  # Wrapper da ferramenta subfinder
-from .modules.naabu import run_naabu  # Wrapper do scanner de portas Naabu
-from .parsers.parse_dnsx import parse_dnsx  # Parser do DNSx
-from .parsers.parse_naabu import parse_naabu  # Parser do Naabu
+from modules.subfinder import run_subfinder  # Wrapper da ferramenta subfinder
+from modules.naabu import run_naabu  # Wrapper do scanner de portas Naabu
+from parsers.parse_dnsx import parse_dnsx  # Parser do DNSx
+from parsers.parse_naabu import parse_naabu  # Parser do Naabu
 import aiofiles  # Arquivos assíncronos
-from .intelligence.risk_mapper import (
+from intelligence.risk_mapper import (
     avaliar_portas,  # Analisa portas abertas
     avaliar_softwares,  # Verifica softwares/vulnerabilidades
     close_http_client,  # Fecha o cliente HTTP
 )
-from .intelligence.scoring import (
+from intelligence.scoring import (
     calcular_score_portas,  # Score baseado em portas
     calcular_score_softwares,  # Score de softwares
     calcular_score_leaks,  # Score de vazamentos
 )
-from .modules.dehashed import verificar_vazamentos  # Consulta vazamentos
+from modules.dehashed import verificar_vazamentos  # Consulta vazamentos
 import uuid  # Gera UUIDs
 
 
@@ -66,8 +66,8 @@ async def contar_linhas(path: str) -> int:
 
 
 from sqlalchemy.future import select  # Consulta assíncrona com SQLAlchemy
-from .database import AsyncSessionLocal  # Sessão assíncrona do banco
-from .models import Report  # Modelo do relatório
+from database import AsyncSessionLocal  # Sessão assíncrona do banco
+from models import Report  # Modelo do relatório
 
 # Persiste ou atualiza dados no banco para consulta posterior via API
 
