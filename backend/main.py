@@ -71,7 +71,7 @@ from models import Report  # Modelo do relatório
 
 # Persiste ou atualiza dados no banco para consulta posterior via API
 
-async def salvar_relatorio_json(info: dict) -> None:
+async def salvar_relatorio_json(info: dict, usuario: str | None = None) -> None:
     """Adiciona ou atualiza um relatório na base PostgreSQL."""
     dominio = info.get("dominio")  # Extrai dominio do dicionário
     if not dominio:  # Se não houver dominio
@@ -84,6 +84,8 @@ async def salvar_relatorio_json(info: dict) -> None:
             report = Report(dominio=dominio)  # Cria novo
             session.add(report)
         report.timestamp = datetime.utcnow()  # Atualiza timestamp
+        if usuario:
+            report.usuario = usuario
         for key, value in info.items():  # Percorre campos
             if hasattr(report, key):  # Se atributo existe
                 setattr(report, key, value)  # Atualiza
@@ -133,7 +135,7 @@ def cancelar_analise_atual() -> bool:
 
 
 # Pipeline principal utilizado em /api/port-analysis para iniciar a varredura
-async def executar_analise(alvo, leak_analysis: bool = True):
+async def executar_analise(alvo, leak_analysis: bool = True, usuario: str | None = None):
     """Executa a enumeração e análise, retornando apenas alertas de portas.
     O processamento de softwares continua em background e pode ser
     consultado depois via job_id."""
@@ -244,7 +246,8 @@ async def executar_analise(alvo, leak_analysis: bool = True):
                     "num_hashes": leak_res.get("num_hashes", 0),
                     "leaked_data": leak_res.get("leaked_data", []),
                     "final_score": jobs[job_id]["final_score"],
-                }
+                },
+                usuario,
             )
             limpar_pasta_data()  # Remove arquivos temporários
             await close_http_client()  # Fecha cliente HTTP

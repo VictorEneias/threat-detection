@@ -11,8 +11,9 @@ export default function AdminPage() {
   const [pass, setPass] = useState('');
 
   useEffect(() => {
-    const token = getCookie('adminToken');
-    if (token) {
+    const token = getCookie('userToken');
+    const adminFlag = getCookie('isAdmin');
+    if (token && adminFlag === 'true') {
       setLoggedIn(true);
     }
   }, []);
@@ -26,15 +27,22 @@ export default function AdminPage() {
     });
     if (res.ok) {
       const data = await res.json();
-      setCookie('adminToken', data.token);
-      setLoggedIn(true);
+      if (data.is_admin) {
+        const opts = { maxAge: 60 * 60 * 24 * 30 };
+        setCookie('userToken', data.token, opts);
+        setCookie('isAdmin', 'true', opts);
+        setLoggedIn(true);
+      } else {
+        alert('Não é administrador');
+      }
     } else {
       alert('Credenciais inválidas');
     }
   };
 
   const handleLogout = () => {
-    deleteCookie('adminToken', { path: '/' });
+    deleteCookie('userToken', { path: '/' });
+    deleteCookie('isAdmin', { path: '/' });
     setLoggedIn(false);             // <- atualiza o estado
     setUser('');         // <-- limpa o campo usuário
     setPass(''); 
@@ -63,6 +71,12 @@ export default function AdminPage() {
             className="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600"
           >
             Senhas
+          </button>
+          <button
+            onClick={() => router.push('/admin/usuarios')}
+            className="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600"
+          >
+            Usuários
           </button>
           <button
             onClick={handleLogout}

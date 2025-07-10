@@ -1,5 +1,6 @@
 'use client';
 import { useState, useRef } from 'react';
+import { getCookie } from 'cookies-next';
 import ScoreGauge from './ScoreGauge';
 
 export default function EmailForm() {
@@ -30,6 +31,7 @@ export default function EmailForm() {
   const [performLeak, setPerformLeak] = useState(true);
   const jobRef = useRef(null);
   const abortRef = useRef(null);
+  const token = getCookie('userToken');
 
   const applyReport = (rep) => {
     setShowCards(true);
@@ -57,7 +59,9 @@ export default function EmailForm() {
     e.preventDefault();
     let cached = null;
     try {
-      const r = await fetch(`/api/report?alvo=${encodeURIComponent(alvo)}`);
+      const r = await fetch(`/api/report?alvo=${encodeURIComponent(alvo)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (r.ok) cached = await r.json();
     } catch (e) {}
     if (cached) {
@@ -90,7 +94,10 @@ export default function EmailForm() {
     try {
       const res = await fetch('/api/port-analysis', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ alvo, leak_analysis: performLeak }),
         signal: abortRef.current.signal
       });
@@ -121,7 +128,9 @@ export default function EmailForm() {
   const pollSoftware = async (id) => {
     if (!id || jobRef.current !== id) return;
     try {
-      const res = await fetch(`/api/software-analysis/${id}`);
+      const res = await fetch(`/api/software-analysis/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
       if (data.alertas) {
         setDominio(data.dominio || dominio);
@@ -152,11 +161,17 @@ export default function EmailForm() {
       abortRef.current = null;
     }
     try {
-      await fetch('/api/cancel-current', { method: 'POST' });
+      await fetch('/api/cancel-current', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
     } catch (e) {}
     if (id) {
       try {
-        await fetch(`/api/cancel/${id}`, { method: 'POST' });
+        await fetch(`/api/cancel/${id}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
       } catch (e) {}
     }
     jobRef.current = null;
@@ -192,7 +207,10 @@ export default function EmailForm() {
     };
     const res = await fetch('/api/chamados', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(payload),
     });
     if (res.ok) {

@@ -10,7 +10,7 @@ function ChamadoCard({ chamado, onDelete }) {
   const toggle = async () => {
     if (!open && !details) {
       const res = await fetch(`/api/chamados/${chamado.id}`, {
-        headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+        headers: { Authorization: `Bearer ${getCookie('userToken')}` },
       });
       if (res.ok) {
         const data = await res.json();
@@ -70,7 +70,7 @@ export default function ChamadosPage() {
   useEffect(() => {
     const fetchChamados = async () => {
       const res = await fetch('/api/chamados/summary', {
-        headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+        headers: { Authorization: `Bearer ${getCookie('userToken')}` },
       });
       const data = await res.json();
       data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -83,7 +83,7 @@ export default function ChamadosPage() {
     if (!confirm('Excluir chamado?')) return;
     const res = await fetch(`/api/chamados/${id}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+      headers: { Authorization: `Bearer ${getCookie('userToken')}` },
     });
     if (res.ok) {
       setChamados((prev) => prev.filter((c) => c.id !== id));

@@ -11,7 +11,7 @@ function ReportCard({ dominio, timestamp, onDelete }) {
   const toggle = async () => {
     if (!open && !info) {
       const res = await fetch(`/api/reports/${dominio}`, {
-        headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+        headers: { Authorization: `Bearer ${getCookie('userToken')}` },
       });
       if (res.ok) {
         const data = await res.json();
@@ -23,7 +23,7 @@ function ReportCard({ dominio, timestamp, onDelete }) {
 
   const exportar = async () => {
     const res = await fetch(`/api/reports/${dominio}/pdf`, {
-      headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+      headers: { Authorization: `Bearer ${getCookie('userToken')}` },
     });
     if (res.ok) {
       const blob = await res.blob();
@@ -135,7 +135,7 @@ export default function RelatoriosPage() {
     if (!confirm(`Excluir relatorio de ${dom}?`)) return;
     const res = await fetch(`/api/reports/${dom}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+      headers: { Authorization: `Bearer ${getCookie('userToken')}` },
     });
     if (res.ok) {
       setReports((prev) => prev.filter((d) => d.dominio !== dom));
@@ -147,7 +147,7 @@ export default function RelatoriosPage() {
   useEffect(() => {
     const fetchReports = async () => {
       const res = await fetch('/api/reports/summary', {
-        headers: { Authorization: `Bearer ${getCookie('adminToken')}` },
+        headers: { Authorization: `Bearer ${getCookie('userToken')}` },
       });
       const data = await res.json();
       data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
