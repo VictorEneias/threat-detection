@@ -2,7 +2,13 @@ import os  # módulo de utilidades do sistema operacional
 import uuid  # geração de identificadores únicos
 import logging  # gerenciamento de logs
 from datetime import datetime  # manipulação de datas e horas
-from fastapi import FastAPI, HTTPException, Header, Depends, Response  # componentes principais do FastAPI
+from fastapi import (
+    FastAPI,
+    HTTPException,
+    Header,
+    Depends,
+    Response,
+)  # componentes principais do FastAPI
 from pydantic import BaseModel  # base para modelos de dados
 from main import (  # funções de análise definidas no módulo principal
     executar_analise,  # inicia a análise principal
@@ -12,7 +18,9 @@ from main import (  # funções de análise definidas no módulo principal
     extrair_dominio,  # utilitário para extrair domínio
     salvar_relatorio_json,  # salva relatórios em disco
 )  # fim dos imports de main
-from modules.dehashed import verificar_vazamentos  # busca vazamentos em serviços externos
+from modules.dehashed import (
+    verificar_vazamentos,
+)  # busca vazamentos em serviços externos
 from intelligence.scoring import calcular_score_leaks  # cálculo de score de vazamentos
 from modules.user_auth import (
     verify_user,
@@ -21,7 +29,11 @@ from modules.user_auth import (
     delete_user,
     set_admin_status,
 )
-from modules.temp_password import create_temp_password, list_temp_passwords, use_temp_password  # gestão de senhas temporárias
+from modules.temp_password import (
+    create_temp_password,
+    list_temp_passwords,
+    use_temp_password,
+)  # gestão de senhas temporárias
 from database import AsyncSessionLocal  # sessão assíncrona com o banco
 from models import Report, Chamado  # modelos ORM utilizados
 from sqlalchemy.future import select  # utilitário de consultas assíncronas
@@ -56,10 +68,13 @@ def wrap_pdf_text(text: object, width: int = 50) -> str:
         lines.extend(parts if parts else [""])
     return "\n".join(lines)
 
+
 app = FastAPI()  # instancia a aplicação web
 logger = logging.getLogger(__name__)  # logger específico deste módulo
 
-ALLOWED_ORIGIN = os.getenv("FRONTEND_URL", "http://localhost:3000")  # URL autorizada no CORS
+ALLOWED_ORIGIN = os.getenv(
+    "FRONTEND_URL", "http://localhost:3000"
+)  # URL autorizada no CORS
 MAIN_PASS = os.getenv("NEXT_PUBLIC_APP_PASSWORD", "senha")  # senha padrão para acesso
 
 TOKENS: dict[str, dict] = {}
@@ -102,6 +117,7 @@ app.add_middleware(  # registra middleware de CORS
     allow_headers=["*"],  # aceita todos os cabeçalhos
 )  # fim do middleware
 
+
 class AnaliseRequest(BaseModel):  # corpo da requisição para análise de portas
     alvo: str  # endereço ou domínio a ser analisado
     leak_analysis: bool = True  # se deve executar análise de vazamentos
@@ -125,9 +141,12 @@ class PasswordRequest(BaseModel):  # requisição para validar senha
 class TempPassRequest(BaseModel):  # geração de senha temporária
     ttl_minutes: int | None = None  # tempo de validade em minutos
 
+
 @app.post("/api/port-analysis")
 async def iniciar(req: AnaliseRequest, user: dict = Depends(require_token)):
-    return await executar_analise(req.alvo, req.leak_analysis, user["username"])  # delega para o módulo principal
+    return await executar_analise(
+        req.alvo, req.leak_analysis, user["username"]
+    )  # delega para o módulo principal
 
 
 @app.get("/api/software-analysis/{job_id}")
@@ -138,10 +157,17 @@ async def resultado(job_id: str):
 @app.post("/api/leak-analysis")
 async def leak(req: AnaliseRequest, user: dict = Depends(require_token)):
     if not req.leak_analysis:  # caso a análise de vazamentos seja desativada
-        return {"num_emails": 0, "num_passwords": 0, "num_hashes": 0, "leak_score": 1}  # retorno padrão
+        return {
+            "num_emails": 0,
+            "num_passwords": 0,
+            "num_hashes": 0,
+            "leak_score": 1,
+        }  # retorno padrão
     dominio = extrair_dominio(req.alvo)  # obtém o domínio a partir da entrada
     if not dominio:  # domínio não pôde ser extraído
-        raise HTTPException(status_code=400, detail="Entrada inválida")  # domínio ausente
+        raise HTTPException(
+            status_code=400, detail="Entrada inválida"
+        )  # domínio ausente
     try:  # protege consulta externa
         resultado = await verificar_vazamentos(dominio)  # consulta serviço DeHashed
         leak_score = calcular_score_leaks(  # calcula score geral
@@ -149,11 +175,16 @@ async def leak(req: AnaliseRequest, user: dict = Depends(require_token)):
             resultado.get("num_passwords", 0),  # senhas vazadas
             resultado.get("num_hashes", 0),  # hashes vazados
         )  # fim do cálculo
-        await salvar_relatorio_json({"dominio": dominio, **resultado, "leak_score": leak_score}, user["username"])
+        await salvar_relatorio_json(
+            {"dominio": dominio, **resultado, "leak_score": leak_score},
+            user["username"],
+        )
         return {**resultado, "leak_score": leak_score}  # envia resultado ao cliente
     except Exception:  # caso algo dê errado
         logger.exception("Falha ao consultar DeHashed")  # log em caso de erro
-        raise HTTPException(status_code=502, detail="Falha ao consultar DeHashed")  # erro na API externa
+        raise HTTPException(
+            status_code=502, detail="Falha ao consultar DeHashed"
+        )  # erro na API externa
 
 
 @app.post("/api/cancel/{job_id}")  # cancela um job específico
@@ -162,17 +193,24 @@ async def cancelar(job_id: str):  # endpoint para cancelar job
         return {"status": "cancelado"}  # operação bem-sucedida
     raise HTTPException(status_code=404, detail="Job não encontrado")  # job inexistente
 
+
 @app.get("/api/report")  # obtém relatório único
 async def obter_relatorio(alvo: str):  # carrega relatório do banco
     """Retorna um relatório específico, se existir."""  # documentação
     dominio = extrair_dominio(alvo)  # extrai domínio da entrada
     if not dominio:  # domínio ausente
-        raise HTTPException(status_code=400, detail="Entrada inválida")  # domínio não reconhecido
+        raise HTTPException(
+            status_code=400, detail="Entrada inválida"
+        )  # domínio não reconhecido
     async with AsyncSessionLocal() as session:  # abre sessão no banco
-        result = await session.execute(select(Report).where(Report.dominio == dominio))  # consulta o relatório
+        result = await session.execute(
+            select(Report).where(Report.dominio == dominio)
+        )  # consulta o relatório
         r = result.scalars().first()  # obtém registro
         if not r:  # nenhum relatório encontrado
-            raise HTTPException(status_code=404, detail="Relatório não encontrado")  # sem dados
+            raise HTTPException(
+                status_code=404, detail="Relatório não encontrado"
+            )  # sem dados
         # monta dicionário de retorno
         return {  # estrutura completa do relatório
             "dominio": r.dominio,  # domínio analisado
@@ -191,11 +229,13 @@ async def obter_relatorio(alvo: str):  # carrega relatório do banco
             "final_score": r.final_score,  # score final do alvo
         }  # fim do dicionário de retorno
 
+
 @app.post("/api/cancel-current")  # cancela a análise em execução
 async def cancelar_atual():  # encerra análise em andamento
     if cancelar_analise_atual():  # se havia análise, foi cancelada
         return {"status": "cancelado"}  # confirmação
     return {"status": "nenhum"}  # nenhuma análise em andamento
+
 
 @app.get("/api/reports")
 async def listar_relatorios(_: dict = Depends(require_admin)):
@@ -223,22 +263,35 @@ async def listar_relatorios(_: dict = Depends(require_admin)):
             }  # fim de cada relatório
         return retorno  # envia todos os relatórios
 
+
 @app.get("/api/reports/summary")
 async def listar_relatorios_summary(_: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # abre sessão
-        result = await session.execute(select(Report.dominio, Report.timestamp))  # consulta apenas campos básicos
+        result = await session.execute(
+            select(Report.dominio, Report.timestamp, Report.usuario)
+        )  # consulta campos básicos e usuário
         rows = result.all()  # recupera linhas
-        return [  # lista simples
-            {"dominio": dom, "timestamp": ts.isoformat() if ts else "sem data"} for dom, ts in rows  # monta retorno simples
-        ]  # fim da lista
+        return [
+            {
+                "dominio": dom,
+                "timestamp": ts.isoformat() if ts else "sem data",
+                "usuario": usuario,
+            }
+            for dom, ts, usuario in rows
+        ]
+
 
 @app.get("/api/reports/{dominio}")
 async def obter_relatorio(dominio: str, _: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # abre sessão
-        result = await session.execute(select(Report).where(Report.dominio == dominio))  # busca registro
+        result = await session.execute(
+            select(Report).where(Report.dominio == dominio)
+        )  # busca registro
         r = result.scalars().first()  # primeira linha
         if not r:  # nenhum relatório encontrado
-            raise HTTPException(status_code=404, detail="Relatório não encontrado")  # retorna erro
+            raise HTTPException(
+                status_code=404, detail="Relatório não encontrado"
+            )  # retorna erro
         return {  # dados do chamado
             "dominio": r.dominio,  # domínio armazenado
             "num_subdominios": r.num_subdominios,  # contagem de subdomínios
@@ -256,9 +309,11 @@ async def obter_relatorio(dominio: str, _: dict = Depends(require_admin)):
             "usuario": r.usuario,
         }  # fim do retorno detalhado
 
+
 @app.get("/api/reports/{dominio}/pdf")
 async def exportar_relatorio_pdf(dominio: str, _: dict = Depends(require_admin)):
     """Gera um PDF melhor formatado com os dados do relatório"""
+
     def limpar_emojis(texto) -> str:
         if isinstance(texto, (list, tuple, set)):
             texto = " ".join(str(t) for t in texto)
@@ -324,7 +379,9 @@ async def exportar_relatorio_pdf(dominio: str, _: dict = Depends(require_admin))
                 soft = limpar_emojis(a.get("software", ""))
                 cve = a.get("cve_id", "")
                 cvss = a.get("cvss", "")
-                texto_alerta = wrap_pdf_text(f"{soft} vulnerável a {cve} (CVSS {cvss})", width=90)
+                texto_alerta = wrap_pdf_text(
+                    f"{soft} vulnerável a {cve} (CVSS {cvss})", width=90
+                )
                 pdf.multi_cell(0, 8, f"{ip}:{porta} -> {texto_alerta}", ln=True)
         else:
             pdf.cell(0, 8, "Nenhum alerta.", ln=True)
@@ -352,29 +409,35 @@ async def exportar_relatorio_pdf(dominio: str, _: dict = Depends(require_admin))
 
                 pdf.cell(60, 7, wrap_pdf_text(limpar_emojis(email_val), 25), border=1)
                 pdf.cell(50, 7, wrap_pdf_text(limpar_emojis(pass_val), 20), border=1)
-                pdf.cell(75, 7, wrap_pdf_text(limpar_emojis(hash_val), 30), border=1, ln=True)
+                pdf.cell(
+                    75, 7, wrap_pdf_text(limpar_emojis(hash_val), 30), border=1, ln=True
+                )
         else:
             pdf.cell(0, 8, "Nenhum dado vazado.", ln=True)
 
         # Output
         pdf_bytes = bytes(pdf.output(dest="S"))
-        headers = {
-            "Content-Disposition": f"attachment; filename={dominio}.pdf"
-        }
-        return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+        headers = {"Content-Disposition": f"attachment; filename={dominio}.pdf"}
+        return Response(
+            content=pdf_bytes, media_type="application/pdf", headers=headers
+        )
 
-    
 
 @app.delete("/api/reports/{dominio}")
 async def remover_relatorio(dominio: str, _: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # inicia sessão
-        result = await session.execute(select(Report).where(Report.dominio == dominio))  # procura registro
+        result = await session.execute(
+            select(Report).where(Report.dominio == dominio)
+        )  # procura registro
         r = result.scalars().first()  # obtém objeto
         if not r:  # registro inexistente
-            raise HTTPException(status_code=404, detail="Relatório não encontrado")  # nada a remover
+            raise HTTPException(
+                status_code=404, detail="Relatório não encontrado"
+            )  # nada a remover
         await session.delete(r)  # remove do banco
         await session.commit()  # salva alterações
     return {"status": "ok"}  # retorno simples
+
 
 class ChamadoSchema(BaseModel):  # dados enviados na abertura de chamado
     nome: str  # nome do solicitante
@@ -389,8 +452,12 @@ class ChamadoSchema(BaseModel):  # dados enviados na abertura de chamado
 async def criar_chamado(ch: ChamadoSchema, user: dict = Depends(require_token)):
     dominio = ch.relatorio.get("dominio")  # domínio do relatório anexado
     if not dominio:  # domínio obrigatório
-        raise HTTPException(status_code=400, detail="Relatório inválido")  # campo obrigatório
-    await salvar_relatorio_json(ch.relatorio, user["username"])  # garante que o relatório exista em disco
+        raise HTTPException(
+            status_code=400, detail="Relatório inválido"
+        )  # campo obrigatório
+    await salvar_relatorio_json(
+        ch.relatorio, user["username"]
+    )  # garante que o relatório exista em disco
     async with AsyncSessionLocal() as session:  # abre sessão
         novo = Chamado(  # instancia modelo ORM
             nome=ch.nome,  # campo nome
@@ -413,32 +480,49 @@ async def listar_chamados(_: dict = Depends(require_admin)):
         chamados = result.scalars().all()  # converte para lista
         retorno = []  # saída
         for c in chamados:  # monta lista de objetos
-            report_res = await session.execute(select(Report).where(Report.dominio == c.dominio))  # vincula relatório
+            report_res = await session.execute(
+                select(Report).where(Report.dominio == c.dominio)
+            )  # vincula relatório
             r = report_res.scalars().first()  # pega relatório
-            retorno.append({  # adiciona ao retorno
-                "id": c.id,  # identificador
-                "nome": c.nome,  # solicitante
-                "empresa": c.empresa,  # empresa do solicitante
-                "cargo": c.cargo,  # cargo informado
-                "telefone": c.telefone,  # telefone para contato
-                "mensagem": c.mensagem,  # texto enviado
-                "timestamp": c.timestamp.isoformat(),  # horário do chamado
-                "relatorio": {  # dados do relatório
-                    "dominio": r.dominio if r else c.dominio,  # domínio investigado
-                    "num_subdominios": r.num_subdominios if r else None,  # subdomínios
-                    "num_ips": r.num_ips if r else None,  # quantidade de IPs
-                    "port_score": r.port_score if r else None,  # score de portas
-                    "software_score": r.software_score if r else None,  # score de softwares
-                    "leak_score": r.leak_score if r else None,  # score de vazamentos
-                    "num_emails": r.num_emails if r else None,  # emails vazados
-                    "num_passwords": r.num_passwords if r else None,  # senhas vazadas
-                    "num_hashes": r.num_hashes if r else None,  # hashes vazados
-                    "final_score": r.final_score if r else None,  # nota final
-                    "port_alertas": r.port_alertas if r else None,  # alertas de portas
-                    "software_alertas": r.software_alertas if r else None,  # alertas de software
-                },  # fim do relatório
-            })  # fecha item
+            retorno.append(
+                {  # adiciona ao retorno
+                    "id": c.id,  # identificador
+                    "nome": c.nome,  # solicitante
+                    "empresa": c.empresa,  # empresa do solicitante
+                    "cargo": c.cargo,  # cargo informado
+                    "telefone": c.telefone,  # telefone para contato
+                    "mensagem": c.mensagem,  # texto enviado
+                    "timestamp": c.timestamp.isoformat(),  # horário do chamado
+                    "relatorio": {  # dados do relatório
+                        "dominio": r.dominio if r else c.dominio,  # domínio investigado
+                        "num_subdominios": (
+                            r.num_subdominios if r else None
+                        ),  # subdomínios
+                        "num_ips": r.num_ips if r else None,  # quantidade de IPs
+                        "port_score": r.port_score if r else None,  # score de portas
+                        "software_score": (
+                            r.software_score if r else None
+                        ),  # score de softwares
+                        "leak_score": (
+                            r.leak_score if r else None
+                        ),  # score de vazamentos
+                        "num_emails": r.num_emails if r else None,  # emails vazados
+                        "num_passwords": (
+                            r.num_passwords if r else None
+                        ),  # senhas vazadas
+                        "num_hashes": r.num_hashes if r else None,  # hashes vazados
+                        "final_score": r.final_score if r else None,  # nota final
+                        "port_alertas": (
+                            r.port_alertas if r else None
+                        ),  # alertas de portas
+                        "software_alertas": (
+                            r.software_alertas if r else None
+                        ),  # alertas de software
+                    },  # fim do relatório
+                }
+            )  # fecha item
         return retorno  # lista de chamados
+
 
 @app.get("/api/chamados/summary")  # resumo dos chamados
 async def listar_chamados_summary(_: dict = Depends(require_admin)):
@@ -447,36 +531,45 @@ async def listar_chamados_summary(_: dict = Depends(require_admin)):
         chamados = result.scalars().all()  # obtém objetos
         retorno = []  # acumulador
         for c in chamados:  # itera sobre resultados
-            retorno.append({  # converte cada item
-                "id": c.id,  # identificador
-                "nome": c.nome,  # solicitante
-                "empresa": c.empresa,  # empresa
-                "timestamp": c.timestamp.isoformat(),  # data
-            })  # adiciona ao resumo
+            retorno.append(
+                {  # converte cada item
+                    "id": c.id,  # identificador
+                    "nome": c.nome,  # solicitante
+                    "empresa": c.empresa,  # empresa
+                    "timestamp": c.timestamp.isoformat(),  # data
+                }
+            )  # adiciona ao resumo
         return retorno  # lista resumida
+
 
 @app.get("/api/chamados/{chamado_id}")  # detalhes de um chamado
 async def obter_chamado(chamado_id: str, _: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # usa sessão do banco
-        result = await session.execute(select(Chamado).where(Chamado.id == int(chamado_id)))  # busca pelo ID
+        result = await session.execute(
+            select(Chamado).where(Chamado.id == int(chamado_id))
+        )  # busca pelo ID
         c = result.scalars().first()  # registro encontrado
         if not c:  # inexistente
-            raise HTTPException(status_code=404, detail="Chamado não encontrado")  # id inválido
-        report_res = await session.execute(select(Report).where(Report.dominio == c.dominio))  # relatório vinculado
+            raise HTTPException(
+                status_code=404, detail="Chamado não encontrado"
+            )  # id inválido
+        report_res = await session.execute(
+            select(Report).where(Report.dominio == c.dominio)
+        )  # relatório vinculado
         r = report_res.scalars().first()  # primeira ocorrência
         return {  # dados completos do chamado
-                "id": c.id,  # identificador do chamado
-                "nome": c.nome,  # solicitante
-                "empresa": c.empresa,  # empresa vinculada
-                "cargo": c.cargo,  # cargo do solicitante
-                "telefone": c.telefone,  # telefone para contato
-                "mensagem": c.mensagem,  # mensagem enviada
-                "timestamp": c.timestamp.isoformat(),  # data do chamado
-                "relatorio": {  # dados do relatório associado
-                    "dominio": r.dominio if r else c.dominio,  # domínio do chamado
-                    "num_subdominios": r.num_subdominios if r else None,  # subdomínios
-                    "num_ips": r.num_ips if r else None,  # IPs encontrados
-                    "port_score": r.port_score if r else None,  # score de portas
+            "id": c.id,  # identificador do chamado
+            "nome": c.nome,  # solicitante
+            "empresa": c.empresa,  # empresa vinculada
+            "cargo": c.cargo,  # cargo do solicitante
+            "telefone": c.telefone,  # telefone para contato
+            "mensagem": c.mensagem,  # mensagem enviada
+            "timestamp": c.timestamp.isoformat(),  # data do chamado
+            "relatorio": {  # dados do relatório associado
+                "dominio": r.dominio if r else c.dominio,  # domínio do chamado
+                "num_subdominios": r.num_subdominios if r else None,  # subdomínios
+                "num_ips": r.num_ips if r else None,  # IPs encontrados
+                "port_score": r.port_score if r else None,  # score de portas
                 "software_score": r.software_score if r else None,  # score de softwares
                 "leak_score": r.leak_score if r else None,  # score de vazamentos
                 "num_emails": r.num_emails if r else None,  # e-mails vazados
@@ -484,23 +577,31 @@ async def obter_chamado(chamado_id: str, _: dict = Depends(require_admin)):
                 "num_hashes": r.num_hashes if r else None,  # hashes vazados
                 "final_score": r.final_score if r else None,  # nota final
                 "port_alertas": r.port_alertas if r else None,  # alertas de portas
-                "software_alertas": r.software_alertas if r else None,  # alertas de software
+                "software_alertas": (
+                    r.software_alertas if r else None
+                ),  # alertas de software
             },  # fim dos dados do relatório
         }  # fim do chamado
+
 
 @app.delete("/api/chamados/{chamado_id}")  # remove chamado existente
 async def remover_chamado(chamado_id: str, _: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # sessão para remoção
-        result = await session.execute(select(Chamado).where(Chamado.id == int(chamado_id)))  # procura pelo id
+        result = await session.execute(
+            select(Chamado).where(Chamado.id == int(chamado_id))
+        )  # procura pelo id
         chamado = result.scalars().first()  # obtém registro
         if not chamado:  # não localizado
-            raise HTTPException(status_code=404, detail="Chamado n\u00e3o encontrado")  # nada a excluir
+            raise HTTPException(
+                status_code=404, detail="Chamado n\u00e3o encontrado"
+            )  # nada a excluir
         await session.delete(chamado)  # exclui
         await session.commit()  # confirma
     return {"status": "ok"}  # retorno após remoção
 
 
 # ======================== AUTENTICAÇÃO ADMIN ========================
+
 
 @app.post("/api/login")
 async def login(req: LoginRequest):
@@ -546,13 +647,16 @@ async def listar_senhas(_: dict = Depends(require_admin)):
                 "id": s.id,  # identificador
                 "timestamp": s.timestamp.isoformat(),  # quando foi criada
                 "used": s.used,  # se já foi usada
-                "expires_at": s.expires_at.isoformat() if s.expires_at else None,  # validade
+                "expires_at": (
+                    s.expires_at.isoformat() if s.expires_at else None
+                ),  # validade
             }  # fim dos dados
         )  # fim append
     return retorno  # lista de senhas
 
 
 # --------------------- GESTÃO DE USUÁRIOS ---------------------
+
 
 @app.get("/api/users")
 async def get_users(_: dict = Depends(require_admin)):
@@ -573,7 +677,9 @@ class AdminToggle(BaseModel):
 
 
 @app.post("/api/users/{user_id}/admin")
-async def toggle_admin(user_id: int, data: AdminToggle, _: dict = Depends(require_admin)):
+async def toggle_admin(
+    user_id: int, data: AdminToggle, _: dict = Depends(require_admin)
+):
     await set_admin_status(user_id, data.is_admin)
     return {"status": "ok"}
 
