@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCookie } from 'cookies-next';
 
-function ReportCard({ dominio, timestamp, onDelete }) {
+function ReportCard({ dominio, timestamp, usuario, onDelete }) {
   const [open, setOpen] = useState(false);
   const [info, setInfo] = useState(null);
 
@@ -43,6 +43,7 @@ function ReportCard({ dominio, timestamp, onDelete }) {
         <div>
           <h2 className="font-semibold">{dominio}</h2>
           <p className="text-xs text-gray-400">{new Date(timestamp + 'Z').toLocaleString()}</p>
+          <p className="text-xs text-gray-400">Usuário: {usuario}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={toggle} className="bg-gray-700 hover:bg-gray-600 text-white px-2 py-1 rounded">
@@ -70,6 +71,7 @@ function ReportCard({ dominio, timestamp, onDelete }) {
           <p>Senhas Vazadas: {info.num_passwords ?? 0}</p>
           <p>Hashes Vazados: {info.num_hashes ?? 0}</p>
           <p>Nota Final: {Math.round(info.final_score * 100)}</p>
+          <p>Usuário: {info.usuario}</p>
           <div className="mt-2">
             <p className="font-semibold">Alertas de Portas:</p>
             {info.port_alertas && info.port_alertas.length > 0 ? (
@@ -166,7 +168,13 @@ export default function RelatoriosPage() {
       <div className="w-full max-w-5xl flex flex-col gap-4">
         {reports.length === 0 && <p className="text-center">Nenhum relatório disponível.</p>}
         {reports.map((r) => (
-          <ReportCard key={r.dominio} dominio={r.dominio} timestamp={r.timestamp} onDelete={handleDelete} />
+          <ReportCard
+            key={r.dominio}
+            dominio={r.dominio}
+            timestamp={r.timestamp}
+            usuario={r.usuario}
+            onDelete={handleDelete}
+          />
         ))}
       </div>
     </main>
