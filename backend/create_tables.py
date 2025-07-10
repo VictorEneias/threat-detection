@@ -1,7 +1,7 @@
 import asyncio
 import os
-from .database import init_db
-from . import models  # noqa: F401
+from database import init_db
+import models  # noqa: F401
 from modules.user_auth import create_user, get_user_by_username
 
 
