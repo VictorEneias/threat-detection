@@ -77,10 +77,10 @@ export default function Home() {
         <main className="min-h-screen flex items-center justify-center bg-black text-white">
           <form onSubmit={doRegister} className="bg-[#1a1a1a] p-6 rounded flex flex-col gap-2 w-80 text-white border border-[#ec008c]">
             <h2 className="text-center text-xl font-bold mb-2">Registrar</h2>
-            <input type="text" placeholder="Usuário" value={regUser} onChange={(e) => setRegUser(e.target.value)} className="p-2 rounded text-black" required />
-            <input type="email" placeholder="Email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className="p-2 rounded text-black" required />
-            <input type="password" placeholder="Senha" value={regPass} onChange={(e) => setRegPass(e.target.value)} className="p-2 rounded text-black" required />
-            <input type="password" placeholder="Confirme" value={regPass2} onChange={(e) => setRegPass2(e.target.value)} className="p-2 rounded text-black" required />
+            <input type="text" placeholder="Usuário" value={regUser} onChange={(e) => setRegUser(e.target.value)} className="p-2 rounded text-white" required />
+            <input type="email" placeholder="Email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} className="p-2 rounded text-white" required />
+            <input type="password" placeholder="Senha" value={regPass} onChange={(e) => setRegPass(e.target.value)} className="p-2 rounded text-white" required />
+            <input type="password" placeholder="Confirme" value={regPass2} onChange={(e) => setRegPass2(e.target.value)} className="p-2 rounded text-white" required />
             <button type="submit" className="bg-[#ec008c] hover:bg-pink-600 text-white px-4 py-2 rounded font-semibold">Registrar</button>
             <button type="button" onClick={() => setShowRegister(false)} className="text-sm mt-1">Voltar</button>
           </form>
@@ -91,8 +91,8 @@ export default function Home() {
       <main className="min-h-screen flex items-center justify-center bg-black text-white">
         <form onSubmit={doLogin} className="bg-[#1a1a1a] p-6 rounded flex flex-col gap-2 w-80 text-white border border-[#ec008c]">
           <h2 className="text-center text-xl font-bold mb-2">Login</h2>
-          <input type="text" placeholder="Usuário" value={loginUser} onChange={(e) => setLoginUser(e.target.value)} className="p-2 rounded text-black" required />
-          <input type="password" placeholder="Senha" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="p-2 rounded text-black" required />
+          <input type="text" placeholder="Usuário" value={loginUser} onChange={(e) => setLoginUser(e.target.value)} className="p-2 rounded text-white" required />
+          <input type="password" placeholder="Senha" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="p-2 rounded text-white" required />
           <button type="submit" className="bg-[#ec008c] hover:bg-pink-600 text-white px-4 py-2 rounded font-semibold">Entrar</button>
           <button type="button" onClick={() => setShowRegister(true)} className="text-sm mt-1">Criar conta</button>
         </form>

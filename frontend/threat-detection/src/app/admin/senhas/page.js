@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getCookie } from 'cookies-next';
 
 export default function SenhasPage() {
   const [senhas, setSenhas] = useState([]);
@@ -8,7 +9,9 @@ export default function SenhasPage() {
   const router = useRouter();
 
   const fetchSenhas = async () => {
-    const res = await fetch('/api/temp-passwords');
+    const res = await fetch('/api/temp-passwords', {
+      headers: { Authorization: `Bearer ${getCookie('userToken')}` },
+    });
     if (res.ok) {
       const data = await res.json();
       data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
@@ -23,7 +26,10 @@ export default function SenhasPage() {
   const gerarSenha = async () => {
     const res = await fetch('/api/temp-passwords', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getCookie('userToken')}`,
+      },
       body: JSON.stringify({}),
     });
     if (res.ok) {
