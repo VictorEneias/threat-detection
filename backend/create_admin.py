@@ -1,13 +1,13 @@
-import asyncio  # lida com tarefas assíncronas
-from getpass import getpass  # lê senha sem exibi-la
-from modules.admin_auth import create_admin  # função que grava administrador
+import asyncio
+from getpass import getpass
+from modules.user_auth import create_user
 
-async def main():  # função principal
-    username = input("Username: ")  # solicita usuário
-    password = getpass("Password: ")  # solicita senha
-    await create_admin(username, password)  # grava no banco
+async def main():
+    username = input("Username: ")
+    email = input("Email: ")
+    password = getpass("Password: ")
+    await create_user(username, email, password, True)
     print("Admin criado com sucesso.")
 
-if __name__ == "__main__":  # executa somente se chamado diretamente
+if __name__ == "__main__":
     asyncio.run(main())
-    

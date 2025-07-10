@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const isAdmin = Boolean(request.cookies.get('adminToken')?.value);
+  const isAdmin = request.cookies.get('isAdmin')?.value === 'true';
 
   const pathname = request.nextUrl.pathname;
 

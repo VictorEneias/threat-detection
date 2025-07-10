@@ -14,7 +14,13 @@ from main import (  # funções de análise definidas no módulo principal
 )  # fim dos imports de main
 from modules.dehashed import verificar_vazamentos  # busca vazamentos em serviços externos
 from intelligence.scoring import calcular_score_leaks  # cálculo de score de vazamentos
-from modules.admin_auth import verify_admin, create_admin  # rotinas de autenticação administrativa
+from modules.user_auth import (
+    verify_user,
+    create_user,
+    list_users,
+    delete_user,
+    set_admin_status,
+)
 from modules.temp_password import create_temp_password, list_temp_passwords, use_temp_password  # gestão de senhas temporárias
 from database import AsyncSessionLocal  # sessão assíncrona com o banco
 from models import Report, Chamado  # modelos ORM utilizados
@@ -56,14 +62,37 @@ logger = logging.getLogger(__name__)  # logger específico deste módulo
 ALLOWED_ORIGIN = os.getenv("FRONTEND_URL", "http://localhost:3000")  # URL autorizada no CORS
 MAIN_PASS = os.getenv("NEXT_PUBLIC_APP_PASSWORD", "senha")  # senha padrão para acesso
 
-TOKENS: set[str] = set()  # tokens de sessão válidos
+TOKENS: dict[str, dict] = {}
 
-def require_token(authorization: str = Header(...)):  # dependência usada para validar token
-    if not authorization.startswith("Bearer "):  # formato incorreto
-        raise HTTPException(status_code=401, detail="Token inválido")  # formato incorreto
-    token = authorization.split()[1]  # extrai token enviado
-    if token not in TOKENS:  # confirma se o token foi gerado
-        raise HTTPException(status_code=401, detail="Token inválido")  # token não cadastrado
+
+@app.on_event("startup")
+async def ensure_initial_admin():
+    init_user = os.getenv("INIT_ADMIN_USER")
+    init_pass = os.getenv("INIT_ADMIN_PASS")
+    if init_user and init_pass:
+        from modules.user_auth import get_user_by_username, create_user
+
+        existing = await get_user_by_username(init_user)
+        if not existing:
+            email = f"{init_user}@example.com"
+            await create_user(init_user, email, init_pass, True)
+
+
+def require_token(authorization: str = Header(...)) -> dict:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token inválido")
+    token = authorization.split()[1]
+    info = TOKENS.get(token)
+    if not info:
+        raise HTTPException(status_code=401, detail="Token inválido")
+    return info
+
+
+def require_admin(user: dict = Depends(require_token)) -> dict:
+    if not user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Acesso restrito")
+    return user
+
 
 app.add_middleware(  # registra middleware de CORS
     CORSMiddleware,  # classe de middleware
@@ -78,14 +107,15 @@ class AnaliseRequest(BaseModel):  # corpo da requisição para análise de porta
     leak_analysis: bool = True  # se deve executar análise de vazamentos
 
 
-class LoginRequest(BaseModel):  # dados para login de administrador
-    username: str  # nome de usuário
-    password: str  # senha
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 
-class RegisterRequest(BaseModel):  # dados para registrar novo admin
-    username: str  # nome de usuário
-    password: str  # senha
+class RegisterRequest(BaseModel):
+    email: str
+    username: str
+    password: str
 
 
 class PasswordRequest(BaseModel):  # requisição para validar senha
@@ -95,18 +125,18 @@ class PasswordRequest(BaseModel):  # requisição para validar senha
 class TempPassRequest(BaseModel):  # geração de senha temporária
     ttl_minutes: int | None = None  # tempo de validade em minutos
 
-@app.post("/api/port-analysis")  # inicia análise de portas
-async def iniciar(req: AnaliseRequest):  # recebe dados da requisição
-    return await executar_analise(req.alvo, req.leak_analysis)  # delega para o módulo principal
+@app.post("/api/port-analysis")
+async def iniciar(req: AnaliseRequest, user: dict = Depends(require_token)):
+    return await executar_analise(req.alvo, req.leak_analysis, user["username"])  # delega para o módulo principal
 
 
-@app.get("/api/software-analysis/{job_id}")  # consulta alertas de software
-async def resultado(job_id: str):  # job_id identifica a análise
+@app.get("/api/software-analysis/{job_id}")
+async def resultado(job_id: str):
     return await consultar_software_alertas(job_id)  # retorna os alertas processados
 
 
-@app.post("/api/leak-analysis")  # executa apenas a análise de vazamentos
-async def leak(req: AnaliseRequest):  # handler da rota de vazamentos
+@app.post("/api/leak-analysis")
+async def leak(req: AnaliseRequest, user: dict = Depends(require_token)):
     if not req.leak_analysis:  # caso a análise de vazamentos seja desativada
         return {"num_emails": 0, "num_passwords": 0, "num_hashes": 0, "leak_score": 1}  # retorno padrão
     dominio = extrair_dominio(req.alvo)  # obtém o domínio a partir da entrada
@@ -119,7 +149,7 @@ async def leak(req: AnaliseRequest):  # handler da rota de vazamentos
             resultado.get("num_passwords", 0),  # senhas vazadas
             resultado.get("num_hashes", 0),  # hashes vazados
         )  # fim do cálculo
-        await salvar_relatorio_json({"dominio": dominio, **resultado, "leak_score": leak_score})  # persiste relatório
+        await salvar_relatorio_json({"dominio": dominio, **resultado, "leak_score": leak_score}, user["username"])
         return {**resultado, "leak_score": leak_score}  # envia resultado ao cliente
     except Exception:  # caso algo dê errado
         logger.exception("Falha ao consultar DeHashed")  # log em caso de erro
@@ -167,8 +197,8 @@ async def cancelar_atual():  # encerra análise em andamento
         return {"status": "cancelado"}  # confirmação
     return {"status": "nenhum"}  # nenhuma análise em andamento
 
-@app.get("/api/reports")  # lista todos os relatórios completos
-async def listar_relatorios(_: None = Depends(require_token)):  # retorna todos relatórios
+@app.get("/api/reports")
+async def listar_relatorios(_: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # inicia sessão no banco
         result = await session.execute(select(Report))  # busca todos
         reports = result.scalars().all()  # converte resultado
@@ -189,11 +219,12 @@ async def listar_relatorios(_: None = Depends(require_token)):  # retorna todos 
                 "num_hashes": r.num_hashes,  # hashes vazados
                 "leaked_data": r.leaked_data,  # dados encontrados
                 "final_score": r.final_score,  # nota final
+                "usuario": r.usuario,
             }  # fim de cada relatório
         return retorno  # envia todos os relatórios
 
-@app.get("/api/reports/summary")  # resumo dos relatórios
-async def listar_relatorios_summary(_: None = Depends(require_token)):  # resumo dos domínios
+@app.get("/api/reports/summary")
+async def listar_relatorios_summary(_: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # abre sessão
         result = await session.execute(select(Report.dominio, Report.timestamp))  # consulta apenas campos básicos
         rows = result.all()  # recupera linhas
@@ -201,8 +232,8 @@ async def listar_relatorios_summary(_: None = Depends(require_token)):  # resumo
             {"dominio": dom, "timestamp": ts.isoformat() if ts else "sem data"} for dom, ts in rows  # monta retorno simples
         ]  # fim da lista
 
-@app.get("/api/reports/{dominio}")  # obtém relatório detalhado
-async def obter_relatorio(dominio: str, _: None = Depends(require_token)):  # detalha um relatório
+@app.get("/api/reports/{dominio}")
+async def obter_relatorio(dominio: str, _: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # abre sessão
         result = await session.execute(select(Report).where(Report.dominio == dominio))  # busca registro
         r = result.scalars().first()  # primeira linha
@@ -222,10 +253,11 @@ async def obter_relatorio(dominio: str, _: None = Depends(require_token)):  # de
             "num_hashes": r.num_hashes,  # total de hashes vazados
             "leaked_data": r.leaked_data,  # dados associados
             "final_score": r.final_score,  # avaliação final
+            "usuario": r.usuario,
         }  # fim do retorno detalhado
 
 @app.get("/api/reports/{dominio}/pdf")
-async def exportar_relatorio_pdf(dominio: str, _: None = Depends(require_token)):
+async def exportar_relatorio_pdf(dominio: str, _: dict = Depends(require_admin)):
     """Gera um PDF melhor formatado com os dados do relatório"""
     def limpar_emojis(texto) -> str:
         if isinstance(texto, (list, tuple, set)):
@@ -333,8 +365,8 @@ async def exportar_relatorio_pdf(dominio: str, _: None = Depends(require_token))
 
     
 
-@app.delete("/api/reports/{dominio}")  # remove relatório do banco
-async def remover_relatorio(dominio: str, _: None = Depends(require_token)):  # exclui relatório existente
+@app.delete("/api/reports/{dominio}")
+async def remover_relatorio(dominio: str, _: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # inicia sessão
         result = await session.execute(select(Report).where(Report.dominio == dominio))  # procura registro
         r = result.scalars().first()  # obtém objeto
@@ -354,11 +386,11 @@ class ChamadoSchema(BaseModel):  # dados enviados na abertura de chamado
 
 
 @app.post("/api/chamados")  # cria um novo chamado
-async def criar_chamado(ch: ChamadoSchema, _: None = Depends(require_token)):  # cria registro de chamado
+async def criar_chamado(ch: ChamadoSchema, user: dict = Depends(require_token)):
     dominio = ch.relatorio.get("dominio")  # domínio do relatório anexado
     if not dominio:  # domínio obrigatório
         raise HTTPException(status_code=400, detail="Relatório inválido")  # campo obrigatório
-    await salvar_relatorio_json(ch.relatorio)  # garante que o relatório exista em disco
+    await salvar_relatorio_json(ch.relatorio, user["username"])  # garante que o relatório exista em disco
     async with AsyncSessionLocal() as session:  # abre sessão
         novo = Chamado(  # instancia modelo ORM
             nome=ch.nome,  # campo nome
@@ -375,7 +407,7 @@ async def criar_chamado(ch: ChamadoSchema, _: None = Depends(require_token)):  #
 
 
 @app.get("/api/chamados")  # lista todos os chamados
-async def listar_chamados(_: None = Depends(require_token)):  # exibe chamados completos
+async def listar_chamados(_: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # sessão do banco
         result = await session.execute(select(Chamado))  # busca registros
         chamados = result.scalars().all()  # converte para lista
@@ -409,7 +441,7 @@ async def listar_chamados(_: None = Depends(require_token)):  # exibe chamados c
         return retorno  # lista de chamados
 
 @app.get("/api/chamados/summary")  # resumo dos chamados
-async def listar_chamados_summary(_: None = Depends(require_token)):  # lista resumida
+async def listar_chamados_summary(_: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # abre sessão
         result = await session.execute(select(Chamado))  # consulta tabela
         chamados = result.scalars().all()  # obtém objetos
@@ -424,7 +456,7 @@ async def listar_chamados_summary(_: None = Depends(require_token)):  # lista re
         return retorno  # lista resumida
 
 @app.get("/api/chamados/{chamado_id}")  # detalhes de um chamado
-async def obter_chamado(chamado_id: str, _: None = Depends(require_token)):  # obtém um chamado
+async def obter_chamado(chamado_id: str, _: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # usa sessão do banco
         result = await session.execute(select(Chamado).where(Chamado.id == int(chamado_id)))  # busca pelo ID
         c = result.scalars().first()  # registro encontrado
@@ -457,7 +489,7 @@ async def obter_chamado(chamado_id: str, _: None = Depends(require_token)):  # o
         }  # fim do chamado
 
 @app.delete("/api/chamados/{chamado_id}")  # remove chamado existente
-async def remover_chamado(chamado_id: str, _: None = Depends(require_token)):  # deleta chamado
+async def remover_chamado(chamado_id: str, _: dict = Depends(require_admin)):
     async with AsyncSessionLocal() as session:  # sessão para remoção
         result = await session.execute(select(Chamado).where(Chamado.id == int(chamado_id)))  # procura pelo id
         chamado = result.scalars().first()  # obtém registro
@@ -470,22 +502,23 @@ async def remover_chamado(chamado_id: str, _: None = Depends(require_token)):  #
 
 # ======================== AUTENTICAÇÃO ADMIN ========================
 
-@app.post("/api/login")  # autenticação do administrador
-async def login(req: LoginRequest):  # realiza login de administrador
-    if await verify_admin(req.username, req.password):  # verifica credenciais
-        token = str(uuid.uuid4())  # cria token aleatório
-        TOKENS.add(token)  # armazena token gerado
-        return {"token": token}  # token devolvido ao cliente
-    raise HTTPException(status_code=401, detail="Credenciais inválidas")  # falha de autenticação
+@app.post("/api/login")
+async def login(req: LoginRequest):
+    user = await verify_user(req.username, req.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Credenciais inválidas")
+    token = str(uuid.uuid4())
+    TOKENS[token] = {"username": user.username, "is_admin": user.is_admin}
+    return {"token": token, "is_admin": user.is_admin}
 
 
-@app.post("/api/register")  # registra novo administrador
-async def register(req: RegisterRequest):  # cria novo administrador
-    try:  # tenta inserção
-        await create_admin(req.username, req.password)  # cria usuário no banco
-    except IntegrityError:  # usuário já existe
-        raise HTTPException(status_code=400, detail="Usuário já existe")  # conflito
-    return {"status": "ok"}  # registro criado
+@app.post("/api/register")
+async def register(req: RegisterRequest):
+    try:
+        await create_user(req.username, req.email, req.password)
+    except IntegrityError:
+        raise HTTPException(status_code=400, detail="Usuário ou email já existe")
+    return {"status": "ok"}
 
 
 @app.post("/api/check-password")  # valida senha principal ou temporária
@@ -497,14 +530,14 @@ async def check_password(req: PasswordRequest):  # verifica senha de acesso
     raise HTTPException(status_code=401, detail="Senha inválida")  # rejeita acesso
 
 
-@app.post("/api/temp-passwords")  # gera senha temporária
-async def gerar_senha(req: TempPassRequest):  # cria senha temporária para convidados
+@app.post("/api/temp-passwords")
+async def gerar_senha(req: TempPassRequest, _: dict = Depends(require_admin)):
     senha = await create_temp_password(req.ttl_minutes)  # cria senha com TTL
     return {"password": senha}  # senha retornada
 
 
-@app.get("/api/temp-passwords")  # lista senhas temporárias
-async def listar_senhas():  # apresenta senhas existentes
+@app.get("/api/temp-passwords")
+async def listar_senhas(_: dict = Depends(require_admin)):
     senhas = await list_temp_passwords()  # obtém todas as senhas ativas
     retorno = []  # lista de saída
     for s in senhas:  # converte para dicionário
@@ -517,3 +550,35 @@ async def listar_senhas():  # apresenta senhas existentes
             }  # fim dos dados
         )  # fim append
     return retorno  # lista de senhas
+
+
+# --------------------- GESTÃO DE USUÁRIOS ---------------------
+
+@app.get("/api/users")
+async def get_users(_: dict = Depends(require_admin)):
+    users = await list_users()
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "email": u.email,
+            "is_admin": u.is_admin,
+        }
+        for u in users
+    ]
+
+
+class AdminToggle(BaseModel):
+    is_admin: bool
+
+
+@app.post("/api/users/{user_id}/admin")
+async def toggle_admin(user_id: int, data: AdminToggle, _: dict = Depends(require_admin)):
+    await set_admin_status(user_id, data.is_admin)
+    return {"status": "ok"}
+
+
+@app.delete("/api/users/{user_id}")
+async def remove_user(user_id: int, _: dict = Depends(require_admin)):
+    await delete_user(user_id)
+    return {"status": "ok"}
