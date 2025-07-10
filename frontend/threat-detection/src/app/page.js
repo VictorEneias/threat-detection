@@ -15,6 +15,7 @@ export default function Home() {
   const [showRegister, setShowRegister] = useState(false);
   const [autenticado, setAutenticado] = useState(false);
   const [senha, setSenha] = useState('');
+  const [lembrar, setLembrar] = useState(false);
 
   useEffect(() => {
     const t = getCookie('userToken');
@@ -34,8 +35,14 @@ export default function Home() {
     });
     if (res.ok) {
       const data = await res.json();
-      setCookie('userToken', data.token, { maxAge: 60 * 60 * 24 * 30 });
-      setCookie('isAdmin', data.is_admin ? 'true' : 'false', { maxAge: 60 * 60 * 24 * 30 });
+      if (lembrar) {
+        const opts = { maxAge: 60 * 60 * 24 * 30 };
+        setCookie('userToken', data.token, opts);
+        setCookie('isAdmin', data.is_admin ? 'true' : 'false', opts);
+      } else {
+        setCookie('userToken', data.token);
+        setCookie('isAdmin', data.is_admin ? 'true' : 'false');
+      }
       setLogged(true);
       setIsAdmin(data.is_admin);
     } else {
@@ -93,6 +100,10 @@ export default function Home() {
           <h2 className="text-center text-xl font-bold mb-2">Login</h2>
           <input type="text" placeholder="Usuário" value={loginUser} onChange={(e) => setLoginUser(e.target.value)} className="p-2 rounded text-white" required />
           <input type="password" placeholder="Senha" value={loginPass} onChange={(e) => setLoginPass(e.target.value)} className="p-2 rounded text-white" required />
+          <label className="text-sm flex items-center gap-2">
+            <input type="checkbox" checked={lembrar} onChange={(e) => setLembrar(e.target.checked)} />
+            Permanecer logado por 30 dias
+          </label>
           <button type="submit" className="bg-[#ec008c] hover:bg-pink-600 text-white px-4 py-2 rounded font-semibold">Entrar</button>
           <button type="button" onClick={() => setShowRegister(true)} className="text-sm mt-1">Criar conta</button>
         </form>

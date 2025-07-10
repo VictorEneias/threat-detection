@@ -9,6 +9,7 @@ export default function AdminPage() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [user, setUser] = useState('');
   const [pass, setPass] = useState('');
+  const [lembrar, setLembrar] = useState(false);
 
   useEffect(() => {
     const token = getCookie('userToken');
@@ -28,9 +29,14 @@ export default function AdminPage() {
     if (res.ok) {
       const data = await res.json();
       if (data.is_admin) {
-        const opts = { maxAge: 60 * 60 * 24 * 30 };
-        setCookie('userToken', data.token, opts);
-        setCookie('isAdmin', 'true', opts);
+        if (lembrar) {
+          const opts = { maxAge: 60 * 60 * 24 * 30 };
+          setCookie('userToken', data.token, opts);
+          setCookie('isAdmin', 'true', opts);
+        } else {
+          setCookie('userToken', data.token);
+          setCookie('isAdmin', 'true');
+        }
         setLoggedIn(true);
       } else {
         alert('Não é administrador');
@@ -109,6 +115,14 @@ export default function AdminPage() {
           className="p-2 rounded text-black outline-none bg-white"
           required
         />
+        <label className="text-sm flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={lembrar}
+            onChange={(e) => setLembrar(e.target.checked)}
+          />
+          Permanecer logado por 30 dias
+        </label>
         <button type="submit" className="bg-[#ec008c] hover:bg-pink-600 text-white px-4 py-2 rounded font-semibold">
           Entrar
         </button>
